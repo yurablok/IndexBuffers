@@ -1,31 +1,39 @@
 /*** **************************************** ***
  **                 schema.ibs                 **
  *** **************************************** ***/
-namespace MyNS;
-//namespace ExternalNS.MyNS;
+namespace ExternalNS.InternalNS
+//namespace MyNS
 
-enum MyEnum
+enum Color
 {
-    field1,
-    field2
-};
+    RED
+    GREEN = 3
+    BLUE
+}
 
 struct Vec2
 {
-    x : float;
-    y : float;
-};
+    x : float32
+    y:float32
+}
 
-struct MyStruct
+struct Packet
 {
-    vUint32 : uint32; // comment
-    vBytes : bytes optional;
-    vUint8 : uint8 optional;
-    point : Vec2 optional;
-    vArray : int64[]; // all arrays are optional by default
-};
+    vUint32 : uint32 // comment
+    vBytes  : bytes optional
+    vUint8  : uint8 optional
+    point   : Vec2  optional
+    vArray  : int64[] // all arrays are optional by default
+}
 /*** **************************************** ***
- **           schema_generated.hpp             **
+ **           how using the compiler           **
+ *** **************************************** ***/
+inbc -i schema.inb -o schema_generated.h
+inbc --input schema.inb --output schema_generated.h
+inbc -i schema.inb // output to schema_generated.h by default
+
+/*** **************************************** ***
+ **            schema_generated.hpp            **
  *** **************************************** ***/
 
 //TODO
