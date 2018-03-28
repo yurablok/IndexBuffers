@@ -86,9 +86,10 @@ static const std::string tokenOptional("optional");
 INBCompiler::INBCompiler()
 {}
 
-void INBCompiler::read(const std::string &input)
+void INBCompiler::read(const std::string &input, const bool detailed)
 {
     std::cout << "INPUT: " << input << std::endl;
+    m_detailed = detailed;
 
     std::ifstream file(input, std::ios_base::binary);
     if (!file.is_open())
@@ -158,14 +159,25 @@ void INBCompiler::read(const std::string &input)
             break;
         }
     }
-    for (auto it = m_tokens.begin(); it != m_tokens.end(); it++)
-        std::cout << *it << ' ';
-    std::cout << std::endl;
+    //for (auto it = m_tokens.begin(); it != m_tokens.end(); it++)
+    //    std::cout << *it << ' ';
+    //std::cout << std::endl;
     parse();
 }
 
-void INBCompiler::write(const std::string &output)
+void INBCompiler::write(const std::string &output, const Language &lang)
 {
+    switch (lang)
+    {
+    case Language::CPP:
+        genCPP(output);
+        break;
+    default:
+        std::cout << clr::red << "Error! Unknown language code: "
+                  << static_cast<uint32_t>(lang) << clr::default_ << std::endl;
+        exit(0);
+        //break;
+    }
     std::cout << clr::green << "OUTPUT: " << output << clr::default_ << std::endl;
 }
 
@@ -200,7 +212,7 @@ void INBCompiler::parse()
         default:
             std::cout << clr::red << "Error! Wrong using of keyword: " << *it << clr::default_ << std::endl;
             exit(0);
-            break;
+            //break;
         }
         if (prev == it)
             break;
@@ -216,6 +228,7 @@ void INBCompiler::parseNamespace(tokens_it &it)
     m_namespaces.clear();
     splitStr(*it, m_namespaces, '.'); // <EXTERNAL.INTERNAL>
     next(it); // ++<EXTERNAL.INTERNAL>
+    if (m_detailed)
     {
         std::cout << "NAMESPACE: ";
         for (const auto &ns : m_namespaces)
@@ -260,6 +273,7 @@ void INBCompiler::parseEnum(tokens_it &it)
             return;
     }
     next(it);
+    if (m_detailed)
     {
         std::cout << "ENUM: ";
         std::cout << enumName << " { ";
@@ -328,6 +342,7 @@ void INBCompiler::parseStruct(tokens_it &it)
         //    return;
     }
     next(it);
+    if (m_detailed)
     {
         std::cout << "STRUCT: ";
         std::cout << structName << " { ";

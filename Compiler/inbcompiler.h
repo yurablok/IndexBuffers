@@ -4,13 +4,18 @@
 #include "stdafx.h"
 #include "colored_cout.h"
 
+enum class Language
+{
+    CPP
+};
+
 class INBCompiler
 {
 public:
     INBCompiler();
 
-    void read(const std::string &input);
-    void write(const std::string &output);
+    void read(const std::string &input, const bool detailed = false);
+    void write(const std::string &output, const Language &lang);
 
 private:
 
@@ -22,7 +27,8 @@ private:
     void parseEnum(tokens_it &it);
     void parseStruct(tokens_it &it);
     bool next(tokens_it &it) const;
-    
+    void genCPP(const std::string &out);
+
     tokens_t m_tokens;
     
     std::list<std::string> m_namespaces;
@@ -38,6 +44,8 @@ private:
     };
     using StructDescr = std::list<std::pair<std::string, StructFieldType>>;
     std::map<std::string, StructDescr> m_structs;
+
+    bool m_detailed = false;
 };
 
 #endif // INBCOMPILER_H

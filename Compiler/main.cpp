@@ -31,9 +31,9 @@ int main(int argc, char **argv)
     }
     if (inputName.empty())
     {
-        //std::cout << "The argument -i is required!" << std::endl;
-        //return 0;
-        inputName = "schema.ibs";
+        std::cout << "The argument -i is required!" << std::endl;
+        return 0;
+        //inputName = "schema.ibs";
     }
     const auto dotPos = inputName.rfind('.');
     if (dotPos == std::string::npos
@@ -48,7 +48,7 @@ int main(int argc, char **argv)
         outputName += "_generated.h";
     }
     INBCompiler compiler;
-    compiler.read(inputName);
-    compiler.write(outputName);
+    compiler.read(inputName, detailed);
+    compiler.write(outputName, Language::CPP);
     return 0;
 }

@@ -4,11 +4,12 @@ CONFIG += console c++11
 CONFIG -= app_bundle
 CONFIG -= qt
 
-INCLUDEPATH += ../../libs/googletest-release-1.8.0/
+#INCLUDEPATH += ../../libs/googletest-release-1.8.0/
 
 SOURCES += stdafx.cpp \
            main.cpp \
-           inbcompiler.cpp
+           inbcompiler.cpp \
+    inbcpp.cpp
 
 HEADERS += stdafx.h \
            clara.hpp \

@@ -1,0 +1,32 @@
+namespace ExtNS.IntNS
+
+enum Color
+{
+    RED
+    GREEN = 3
+    BLUE
+}
+
+struct Vec2f
+{
+    x : float32
+    y : float32
+}
+
+struct Vec3i
+{
+    x : int32 optional
+    y : int32 optional
+    z : int32 optional
+}
+
+struct Packet
+{
+    vUint32 : uint32
+    vBytes  : bytes optional
+    vUint8  : uint8 optional
+    point2f : Vec2f optional
+    point3i : Vec3i
+    vArray  : int64[]
+}
+

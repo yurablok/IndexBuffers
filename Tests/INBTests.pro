@@ -3,8 +3,10 @@ CONFIG += console c++11
 CONFIG -= app_bundle
 CONFIG -= qt
 
-SOURCES += main.cpp \
-    main.cpp
+LIBS += -lpthread
+
+SOURCES += main.cpp
+
+HEADERS += schema_generated.h
 
 INCLUDEPATH += ../../libs/googletest-release-1.8.0/
-
