@@ -9,6 +9,7 @@
 #include <vector>
 #include <map>
 #include <list>
+#include <cctype>
 
 #ifdef _WIN32
 #   include <Windows.h>

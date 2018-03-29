@@ -40,48 +40,6 @@ void splitIbs(const std::string &source, std::list<std::string> &splitted)
         splitted.emplace_back(std::move(buffer));
 }
 
-enum class kw
-{
-    Namespace,
-    Enum,
-    Struct,
-    Optional,
-    Int8,
-    Uint8,
-    Int16,
-    Uint16,
-    Int32,
-    Uint32,
-    Int64,
-    Uint64,
-    Float32,
-    Float64,
-    Bytes,
-};
-static const std::map<std::string, kw> keywords =
-{
-    { "namespace",  kw::Namespace   },
-    { "enum"     ,  kw::Enum        },
-    { "struct"   ,  kw::Struct      },
-    { "optional" ,  kw::Optional    },
-    { "int8"     ,  kw::Int8        },
-    { "uint8"    ,  kw::Uint8       },
-    { "int16"    ,  kw::Int16       },
-    { "uint16"   ,  kw::Uint16      },
-    { "int32"    ,  kw::Int32       },
-    { "uint32"   ,  kw::Uint32      },
-    { "int64"    ,  kw::Int64       },
-    { "uint64"   ,  kw::Uint64      },
-    { "float32"  ,  kw::Float32     },
-    { "float64"  ,  kw::Float64     },
-    { "bytes"    ,  kw::Bytes       }
-};
-static const std::string tokenOpenScope("{");
-static const std::string tokenCloseScope("}");
-static const std::string tokenArray("[]");
-static const std::string tokenEquals("=");
-static const std::string tokenColon(":");
-static const std::string tokenOptional("optional");
 
 INBCompiler::INBCompiler()
 {}
@@ -294,7 +252,9 @@ void INBCompiler::parseStruct(tokens_it &it)
     if (*it != tokenOpenScope) // <{>
         return;
     next(it); // ++<{>
-    auto &fieldsList = m_structs[structName];
+    auto &fieldsList = m_structs[structName].first;
+    auto &optionalCount = m_structs[structName].second;
+    optionalCount = 0;
     bool isExpectType = false;
     while (*it != tokenCloseScope)
     {
@@ -305,6 +265,9 @@ void INBCompiler::parseStruct(tokens_it &it)
             if (fieldsList.empty())
                 return;
             fieldsList.back().second.isArray = true;
+            if (!fieldsList.back().second.isOptional)
+                optionalCount++;
+            fieldsList.back().second.isOptional = true;
             if (!next(it))
                 return;
         }
@@ -314,6 +277,8 @@ void INBCompiler::parseStruct(tokens_it &it)
                 return;
             if (fieldsList.empty())
                 return;
+            if (!fieldsList.back().second.isOptional)
+                optionalCount++;
             fieldsList.back().second.isOptional = true;
             if (!next(it))
                 return;
@@ -327,6 +292,13 @@ void INBCompiler::parseStruct(tokens_it &it)
             if (fieldsList.empty())
                 return;
             fieldsList.back().second.type = std::move(*it);
+            if (fieldsList.back().second.type == tokenBytes)
+            {
+                fieldsList.back().second.isArray = true;
+                if (!fieldsList.back().second.isOptional)
+                    optionalCount++;
+                fieldsList.back().second.isOptional = true;
+            }
             if (!next(it))
                 return;
             isExpectType = false;
