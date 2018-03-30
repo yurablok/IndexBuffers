@@ -44,6 +44,15 @@ static const std::map<std::string, kw> keywords =
     { "float64"  ,  kw::Float64     },
     { "bytes"    ,  kw::Bytes       }
 };
+static bool isBuiltInType(const std::string &type)
+{
+    auto it = keywords.find(type);
+    if (it == keywords.end())
+        return false;
+    if (static_cast<uint8_t>(it->second) < 4) // first built-in type in 'kw' enum
+        return false;
+    return true;
+}
 static const std::string tokenOpenScope("{");
 static const std::string tokenCloseScope("}");
 static const std::string tokenArray("[]");
@@ -63,7 +72,7 @@ public:
 
 private:
 
-    using tokens_t = std::list<std::string>;
+    using tokens_t = std::deque<std::string>;
     using tokens_it = tokens_t::iterator;
     
     void parse();
@@ -75,21 +84,31 @@ private:
 
     tokens_t m_tokens;
     
-    std::list<std::string> m_namespaces;
+    std::deque<std::string> m_namespaces;
 
-    using EnumDescr = std::list<std::pair<std::string, uint32_t>>;
+    using EnumDescr = std::deque<std::pair<std::string, uint32_t>>;
     std::map<std::string, EnumDescr> m_enums;
 
     struct StructFieldType
     {
+        std::string name;
         std::string type;
+        bool isBuiltIn = false;
         bool isOptional = false;
         bool isArray = false;
     };
-    using StructDescr = std::pair<std::list<std::pair<std::string,
-                                                      StructFieldType>>,
-                                  uint32_t>;
-    std::map<std::string, StructDescr> m_structs;
+    struct StructDescr
+    {
+        std::string name;
+        std::deque<StructFieldType> fields;
+        uint32_t optionalCount = 0;
+    };
+    std::vector<StructDescr> m_structs;
+    //using StructDescr = std::pair<std::deque<std::pair<std::string,
+    //                                                  StructFieldType>>,
+    //                              uint32_t>;
+    //std::vector<std::pair<std::string, StructDescr>> m_structs;
+
 
     bool m_detailed = false;
 };

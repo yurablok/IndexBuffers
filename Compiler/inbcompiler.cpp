@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "inbcompiler.h"
 
-void splitStr(const std::string &source, std::list<std::string> &splitted, const char by = ' ')
+void splitStr(const std::string &source, std::deque<std::string> &splitted, const char by = ' ')
 {
     if (source.empty())
         return;
@@ -17,7 +17,7 @@ void splitStr(const std::string &source, std::list<std::string> &splitted, const
         splitted.emplace_back(std::move(buffer));
 }
 
-void splitIbs(const std::string &source, std::list<std::string> &splitted)
+void splitIbs(const std::string &source, std::deque<std::string> &splitted)
 {
     if (source.empty())
         return;
@@ -25,12 +25,7 @@ void splitIbs(const std::string &source, std::list<std::string> &splitted)
     for (const char c : source)
     {
         if (c == ' ' && !buffer.empty())
-        {
             splitted.emplace_back(std::move(buffer));
-            //fast fix
-            //if (splitted.back().front() == ' ')
-            //    splitted.erase(splitted.begin());
-        }
         else if (c == ',' || c == '{' || c == '}' || c == ':')
             splitted.emplace_back(1, c);
         else
@@ -59,7 +54,7 @@ void INBCompiler::read(const std::string &input, const bool detailed)
     std::string buffer;
 
     file.seekg(0, std::ios_base::end);
-    buffer.resize(file.tellg());
+    buffer.resize(static_cast<uint32_t>(file.tellg()));
     file.seekg(0, std::ios_base::beg);
     file.read(&buffer[0], buffer.size());
 
@@ -188,10 +183,10 @@ void INBCompiler::parseNamespace(tokens_it &it)
     next(it); // ++<EXTERNAL.INTERNAL>
     if (m_detailed)
     {
-        std::cout << "NAMESPACE: ";
+        std::cout << "NAMESPACE: " << clr::blue;
         for (const auto &ns : m_namespaces)
             std::cout << ns << ' ';
-        std::cout << std::endl;
+        std::cout << clr::default_ << std::endl;
     }
 }
 
@@ -234,9 +229,10 @@ void INBCompiler::parseEnum(tokens_it &it)
     if (m_detailed)
     {
         std::cout << "ENUM: ";
-        std::cout << enumName << " { ";
+        std::cout << clr::blue << enumName << clr::default_ << " { ";
         for (const auto &field : fieldsList)
-            std::cout << field.first << '=' << field.second << ' ';
+            std::cout << clr::cyan << field.first
+                << clr::default_ << '=' << field.second << ' ';
         std::cout << '}' << std::endl;
     }
 }
@@ -246,14 +242,20 @@ void INBCompiler::parseStruct(tokens_it &it)
 {
     if (!next(it)) // ++<struct>
         return;
-    std::string structName = std::move(*it); // <NAME>
+    std::string structNameTemp = std::move(*it); // <NAME>
     if (!next(it)) // ++<NAME>
         return;
     if (*it != tokenOpenScope) // <{>
         return;
     next(it); // ++<{>
-    auto &fieldsList = m_structs[structName].first;
-    auto &optionalCount = m_structs[structName].second;
+    m_structs.emplace_back();
+    
+    m_structs.back().name = std::move(structNameTemp);
+    const std::string &structName = m_structs.back().name;
+
+    auto &fieldsList = m_structs.back().fields;
+    auto &optionalCount = m_structs.back().optionalCount;
+    
     optionalCount = 0;
     bool isExpectType = false;
     while (*it != tokenCloseScope)
@@ -264,10 +266,10 @@ void INBCompiler::parseStruct(tokens_it &it)
                 return;
             if (fieldsList.empty())
                 return;
-            fieldsList.back().second.isArray = true;
-            if (!fieldsList.back().second.isOptional)
+            fieldsList.back().isArray = true;
+            if (!fieldsList.back().isOptional)
                 optionalCount++;
-            fieldsList.back().second.isOptional = true;
+            fieldsList.back().isOptional = true;
             if (!next(it))
                 return;
         }
@@ -277,9 +279,9 @@ void INBCompiler::parseStruct(tokens_it &it)
                 return;
             if (fieldsList.empty())
                 return;
-            if (!fieldsList.back().second.isOptional)
+            if (!fieldsList.back().isOptional)
                 optionalCount++;
-            fieldsList.back().second.isOptional = true;
+            fieldsList.back().isOptional = true;
             if (!next(it))
                 return;
         }
@@ -291,13 +293,24 @@ void INBCompiler::parseStruct(tokens_it &it)
                 return;
             if (fieldsList.empty())
                 return;
-            fieldsList.back().second.type = std::move(*it);
-            if (fieldsList.back().second.type == tokenBytes)
+            fieldsList.back().type = std::move(*it);
+            if (isBuiltInType(fieldsList.back().type))
             {
-                fieldsList.back().second.isArray = true;
-                if (!fieldsList.back().second.isOptional)
+                fieldsList.back().isBuiltIn = true;
+                if (fieldsList.back().type == tokenBytes)
+                {
+                    fieldsList.back().isArray = true;
+                    if (!fieldsList.back().isOptional)
+                        optionalCount++;
+                    fieldsList.back().isOptional = true;
+                }
+            }
+            else
+            {
+                if (!fieldsList.back().isOptional)
                     optionalCount++;
-                fieldsList.back().second.isOptional = true;
+                fieldsList.back().isOptional = true;
+                fieldsList.back().isBuiltIn = false;
             }
             if (!next(it))
                 return;
@@ -305,7 +318,8 @@ void INBCompiler::parseStruct(tokens_it &it)
         }
         else
         {
-            fieldsList.emplace_back(std::move(*it), StructFieldType());
+            fieldsList.emplace_back();
+            fieldsList.back().name = std::move(*it);
             if (!next(it))
                 return;
             isExpectType = true;
@@ -317,18 +331,29 @@ void INBCompiler::parseStruct(tokens_it &it)
     if (m_detailed)
     {
         std::cout << "STRUCT: ";
-        std::cout << structName << " { ";
+        std::cout << clr::blue << structName << clr::default_ << " { ";
         for (const auto &field : fieldsList)
         {
-            std::cout << field.first << ':' << field.second.type;
-            if (field.second.isArray)
+            if (field.isBuiltIn)
+                std::cout << clr::cyan;
+            else
+                std::cout << clr::blue;
+            std::cout << field.name << clr::default_ << ':' << field.type;
+            if (field.isBuiltIn)
+                std::cout << ".b-in";
+            if (field.isArray)
                 std::cout << ".arr";
-            if (field.second.isOptional)
+            if (field.isOptional)
                 std::cout << ".opt";
             std::cout << ' ';
         }
         std::cout << '}' << std::endl;
     }
+    std::sort(fieldsList.begin(), fieldsList.end(),
+        [](const StructFieldType& a, const StructFieldType& b)
+        {
+            return a.isOptional < b.isOptional;
+        });
 }
 
 bool INBCompiler::next(tokens_it &it) const

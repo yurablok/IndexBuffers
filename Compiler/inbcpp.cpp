@@ -39,16 +39,7 @@ void INBCompiler::genCPP(const std::string &out)
     file << std::endl;
     file << "#include <vector>" << std::endl;
     file << "#include <memory>" << std::endl;
-    file << std::endl;
-    file << "#ifndef INB_NO_COMPRESSION" << std::endl;
-    file << "#   define INB_NO_COMPRESSION    0" << std::endl;
-    file << "#endif" << std::endl;
-    file << "#ifndef INB_TABLE_COMPRESSION" << std::endl;
-    file << "#   define INB_TABLE_COMPRESSION 1" << std::endl;
-    file << "#endif" << std::endl;
-    file << "#ifndef INB_FULL_COMPRESSION" << std::endl;
-    file << "#   define INB_FULL_COMPRESSION  2" << std::endl;
-    file << "#endif" << std::endl;
+    //file << "#include <cstring>" << std::endl;
     file << std::endl;
     for (const auto &ns : m_namespaces)
     {
@@ -57,16 +48,23 @@ void INBCompiler::genCPP(const std::string &out)
     }
     file << "namespace _inner_" << std::endl;
     file << "{" << std::endl;
+    file << "    static void copybybytes(const void* src, void* dst, const uint32_t size)" << std::endl;
+    file << "    {" << std::endl;
+    file << "        for (uint32_t i = 0; i < size; ++i)" << std::endl;
+    file << "            reinterpret_cast<uint8_t*>(dst)[i] = reinterpret_cast<const uint8_t*>(src)[i];" << std::endl;
+    file << "    }" << std::endl;
     file << "    struct header" << std::endl;
     file << "    {" << std::endl;
     file << "        uint8_t signature0 = 'i';" << std::endl;
     file << "        uint8_t signature1 = 'b';" << std::endl;
-    file << "        uint16_t version    :  3;" << std::endl;
-    file << "        uint16_t compression:  2;" << std::endl;
-    file << "        uint16_t tableSize  : 11;" << std::endl;
+    file << "        uint16_t type           ;" << std::endl;
     file << "    };" << std::endl;
+    file << "    static uint32_t zero = 0;" << std::endl;
     file << "}" << std::endl;
     file << std::endl;
+    // === =============================== ===
+    // ==               enums               ==
+    // === =============================== ===
     for (const auto &en : m_enums)
     {
         file << "enum class " << en.first << std::endl;
@@ -80,349 +78,542 @@ void INBCompiler::genCPP(const std::string &out)
             file << std::endl;
         }
         file << "};" << std::endl;
+        file << "static const char* " << en.first << "_str(const " << en.first << "& id)" << std::endl;
+        file << "{" << std::endl;
+        file << "    switch (id)" << std::endl;
+        file << "    {" << std::endl;
+        for (auto descr = en.second.begin(); descr != en.second.end(); ++descr)
+        {
+            file << "    case " << en.first << "::" << descr->first << ": return \"" << descr->first << "\";" << std::endl;
+        }
+
+        file << "    default: return \"_?unknown_" << en.first << "?_\";" << std::endl;
+        file << "    }" << std::endl;
+        file << "}" << std::endl;
         file << std::endl;
     }
+    file << std::endl;
+    // === =============================== ===
+    // ==              classes              ==
+    // === =============================== ===
     for (const auto &st : m_structs)
     {
-        file << "class " << st.first << ";" << std::endl;
+        file << "class " << st.name << ";" << std::endl;
     }
     file << std::endl;
     for (const auto &st : m_structs)
     {
-        const uint32_t optionalCount = st.second.second;
-        const uint32_t staticCount = st.second.first.size() - optionalCount;
-        file << "class " << st.first << std::endl;
+        const uint32_t optionalCount = st.optionalCount;
+        const uint32_t staticCount = st.fields.size() - optionalCount;
+        uint32_t builtInCount = 0;
+        file << "class " << st.name << std::endl;
         file << "{" << std::endl;
         file << "public:" << std::endl;
-        file << "    void create(const uint32_t reserve = 0)" << std::endl;
+        file << "    " << st.name << "(const uint32_t reserve = 0)" << std::endl;
         file << "    {" << std::endl;
-        file << "        m_from = nullptr;" << std::endl;
-        file << "        m_buffer.reserve(reserve);" << std::endl;
-        file << "        m_buffer.resize(sizeof(_inner_::header) + sizeof(m_tableSize) * sizeof(uint32_t)";
-        if (staticCount)
-            file << " + sizeof(staticData));" << std::endl;
-        else
-            file << ");" << std::endl;
-        file << "        _inner_::header *h = reinterpret_cast<_inner_::header*>(&m_buffer[0]);" << std::endl;
-        file << "        h->signature0  = 'i';" << std::endl;
-        file << "        h->signature1  = 'b';" << std::endl;
-        file << "        h->version     = 1;" << std::endl;
-        file << "        h->compression = INB_NO_COMPRESSION;" << std::endl;
-        file << "        h->tableSize   = m_tableSize;" << std::endl;
-        file << "        if (m_tableSize)" << std::endl;
+        file << "        create(reserve);" << std::endl;
+        file << "    }" << std::endl;
+        file << "    " << st.name << "(uint8_t *from_)" << std::endl;
+        file << "    {" << std::endl;
+        file << "        this->from(from_);" << std::endl;
+        file << "    }" << std::endl;
+        file << std::endl;
+        // === =============================== ===
+        // ==             ids staff             ==
+        // === =============================== ===
+        file << "    enum class ids" << std::endl;
+        file << "    {" << std::endl;
+        for (const auto &member : st.fields)
+        {
+            if (member.isBuiltIn)
+                builtInCount++;
+            file << "        " << member.name << "," << std::endl;
+        }
+        file << "        _size_" << std::endl;
+        file << "    };" << std::endl;
+        file << "    static const char* id_str(const ids& id)" << std::endl;
+        file << "    {" << std::endl;
+        file << "        switch (id)" << std::endl;
         file << "        {" << std::endl;
-        file << "           uint32_t* table = reinterpret_cast<uint32_t*>(" << std::endl;
-        file << "               &m_buffer[0] + sizeof(_inner_::header)";
-        if (staticCount)
-            file << "+sizeof(staticData));" << std::endl;
-        else
-            file << ");" << std::endl;
-        file << "           for (uint32_t i = 0; i < m_tableSize; i++)" << std::endl;
-        file << "               table[i] = 0;" << std::endl;
+        for (const auto &member : st.fields)
+        {
+            file << "        case ids::" << member.name << ": return \"" << member.name << "\"; " << std::endl;
+        }
+        file << "        default: return \"_?unknown_id?_\";" << std::endl;
         file << "        }" << std::endl;
         file << "    }" << std::endl;
         file << std::endl;
-        if (optionalCount)
+        file << "    enum class types" << std::endl;
+        file << "    {" << std::endl;
+        file << "        int8," << std::endl;
+        file << "        uint8," << std::endl;
+        file << "        int16," << std::endl;
+        file << "        uint16," << std::endl;
+        file << "        int32," << std::endl;
+        file << "        uint32," << std::endl;
+        file << "        int64," << std::endl;
+        file << "        uint64," << std::endl;
+        file << "        float32," << std::endl;
+        file << "        float64," << std::endl;
+        file << "        bytes";
+        for (uint32_t i = 0; i < st.fields.size(); i++)
         {
-            file << "    enum class ids" << std::endl;
-            file << "    {" << std::endl;
-            for (const auto &member : st.second.first)
-            {
-                if (!member.second.isOptional)
-                    continue;
-                file << "        " << member.first << "," << std::endl;
-            }
-            file << "        _size_" << std::endl;
-            file << "    };" << std::endl;
-            file << "    const char* getIdString(const ids& id) const" << std::endl;
-            file << "    {" << std::endl;
-            file << "        switch (id)" << std::endl;
-            file << "        {" << std::endl;
-            for (const auto &member : st.second.first)
-            {
-                if (!member.second.isOptional)
-                    continue;
-                file << "        case ids::" << member.first << ": return \"" << member.first << "\"; " << std::endl;
-            }
-            file << "        default: return \"_?unknown_id?_\";" << std::endl;
-            file << "        }" << std::endl;
-            file << "    }" << std::endl;
-            file << "    void* getDataById(const ids& id)" << std::endl;
-            file << "    {" << std::endl;
-            file << "        uint8_t* ptr = m_from ? m_from : m_buffer.data();" << std::endl;
-            file << "        const uint32_t* table = reinterpret_cast<const uint32_t*>(" << std::endl;
-            file << "                    &ptr[0] + sizeof(_inner_::header)";
-            if (staticCount)
-                file << " + sizeof(staticData)";
-            file << ");" << std::endl;
-            file << "        const uint32_t offset = table[static_cast<uint32_t>(id)];" << std::endl;
-            file << "        if (offset == 0)" << std::endl;
-            file << "            throw std::logic_error(\"There is no field '\"" << std::endl;
-            file << "                + std::string(getIdString(id)) + \"' in the packet\");" << std::endl;
-            file << "        return reinterpret_cast<void*>(&ptr[0] + offset + sizeof(uint32_t));" << std::endl;
-            file << "    }" << std::endl;
-            file << "    uint32_t getSizeById(const ids& id) const" << std::endl;
-            file << "    {" << std::endl;
-            file << "        const uint8_t* ptr = m_from ? m_from : m_buffer.data();" << std::endl;
-            file << "        const uint32_t* table = reinterpret_cast<const uint32_t*>(" << std::endl;
-            file << "                    &ptr[0] + sizeof(_inner_::header)";
-            if (staticCount)
-                file << " + sizeof(staticData)";
-            file << ");" << std::endl;
-            file << "        const uint32_t offset = table[static_cast<uint32_t>(id)];" << std::endl;
-            file << "        if (offset == 0)" << std::endl;
-            file << "            return 0;" << std::endl;
-            file << "        else" << std::endl;
-            file << "            return *reinterpret_cast<const uint32_t*>(&ptr[0] + offset);" << std::endl;
-            file << "    }" << std::endl;
-            file << "    void addDataById(const ids& id, const uint32_t size)" << std::endl;
-            file << "    {" << std::endl;
-            file << "        if (m_from)" << std::endl;
-            file << "            throw std::logic_error(\"We cannot edit received packets\");" << std::endl;
-            file << "        uint32_t* table = reinterpret_cast<uint32_t*>(" << std::endl;
-            file << "            &m_buffer[0] + sizeof(_inner_::header)";
-            if (staticCount)
-                file << " + sizeof(staticData)";
-            file << ");" << std::endl;
-            file << "        const uint32_t offset = table[static_cast<uint32_t>(id)];" << std::endl;
-            file << "        if (offset != 0)" << std::endl;
-            file << "            return;" << std::endl;
-            file << "        const uint32_t newOffset = static_cast<uint32_t>(m_buffer.size());" << std::endl;
-            file << "        m_buffer.resize(m_buffer.size() + sizeof(uint32_t) + size);" << std::endl;
-            file << "        table = reinterpret_cast<uint32_t*>(" << std::endl;
-            file << "            &m_buffer[0] + sizeof(_inner_::header)";
-            if (staticCount)
-                file << " + sizeof(staticData)";
-            file << ");" << std::endl;
-            file << "        table[static_cast<uint32_t>(id)] = newOffset;" << std::endl;
-            file << "        *reinterpret_cast<uint32_t*>(&m_buffer[0] + newOffset) = size;" << std::endl;
-            file << "    }" << std::endl;
-            file << std::endl;
-        }
-        for (const auto &member : st.second.first)
-        {
-            const auto &stType = standard.find(member.second.type);
-            if (stType == standard.end())
-            {
-                std::cout << clr::yellow << "Warning! Unknown type: " << member.second.type << clr::default_ << std::endl;
+            const auto &member = st.fields[i];
+            if (member.isBuiltIn)
                 continue;
-            }
-            const std::string &type = stType->second;
-            const std::string &name = member.first;
-            const bool &isArray = member.second.isArray;
-            const bool &isOptional = member.second.isOptional;
-
-            file << "    uint32_t size_" << name << "() const" << std::endl;
-            file << "    {" << std::endl;
-            if (isOptional)
+            file << "," << std::endl << "        " << member.type;
+        }
+        file << "," << std::endl << "        unknown" << std::endl;
+        file << "    };" << std::endl;
+        file << std::endl;
+        // === =============================== ===
+        // ==       main has,get,set,size       ==
+        // === =============================== ===
+        file << "    uint32_t has(const ids& id)" << std::endl;
+        file << "    {" << std::endl;
+        file << "        return address(id, getTable());" << std::endl;
+        file << "    }" << std::endl;
+        file << "    uint8_t* get(const ids& id)" << std::endl;
+        file << "    {" << std::endl;
+        file << "        Table* table = getTable();" << std::endl;
+        file << "        uint8_t* ptr = to();" << std::endl;
+        file << "        switch (id)" << std::endl;
+        file << "        {" << std::endl;
+        for (uint32_t i = 0; i < st.fields.size(); i++)
+        {
+            const auto &member = st.fields[i];
+            //if (standard.find(member.second.type) == standard.end())
+            //    continue;
+            if (i < staticCount)
             {
-                if (type == tokenBytes)
-                    file << "        return getSizeById(ids::" << name << ");" << std::endl;
-                else
-                    file << "        return getSizeById(ids::" << name << ") / sizeof(" << type << ");" << std::endl;
+                file << "        case ids::" << member.name << ":" << std::endl;
+                file << "            return reinterpret_cast<uint8_t*>(&table->" << member.name << ");" << std::endl;
             }
             else
             {
-                file << "        return sizeof(" << type << ");" << std::endl;
+                file << "        case ids::" << member.name << ":" << std::endl;
             }
-            file << "    }" << std::endl;
-            file << "    bool has_" << name << "() const" << std::endl;
+        }
+        if (optionalCount)
+        {
+            file << "            return &ptr[address(id, table) + sizeof(uint32_t)];" << std::endl;
+        }
+        file << "        default:" << std::endl;
+        file << "            return nullptr;" << std::endl;
+        file << "        }" << std::endl;
+        file << "    }" << std::endl;
+        file << "    void set(const ids& id, const void* data, const uint32_t size)" << std::endl;
+        file << "    {" << std::endl;
+        file << "        switch (id)" << std::endl;
+        file << "        {" << std::endl;
+        for (uint32_t i = 0; i < st.fields.size(); i++)
+        {
+            const auto &member = st.fields[i];
+            //if (standard.find(member.second.type) == standard.end())
+            //    continue;
+            if (i < staticCount)
+            {
+                file << "        case ids::" << member.name << ":" << std::endl;
+                file << "            if (data)" << std::endl;
+                file << "                _inner_::copybybytes(data, &getTable()->" << member.name << ", size);" << std::endl;
+                file << "            break;" << std::endl;
+            }
+            else
+            {
+                break;
+            }
+        }
+        file << "        default:" << std::endl;
+        if (optionalCount)
+        {
+            file << "        {" << std::endl;
+            file << "            uint32_t offset = has(id);" << std::endl;
+            file << "            if (offset == 0)" << std::endl;
+            file << "            {" << std::endl;
+            file << "                offset = insert(size + sizeof(uint32_t));" << std::endl;
+            file << "                if (!offset)" << std::endl;
+            file << "                    return;" << std::endl;
+            file << "                *reinterpret_cast<uint32_t*>(&m_buffer->data()[offset]) = size;" << std::endl;
+            file << "                address(id, getTable()) = offset;" << std::endl;
+            file << "            }" << std::endl;
+            file << "            if (data)" << std::endl;
+            file << "                _inner_::copybybytes(data, &m_buffer->data()[offset + sizeof(uint32_t)], size);" << std::endl;
+            file << "            break;" << std::endl;
+            file << "        }" << std::endl;
+        }
+        else
+        {
+            file << "            break;" << std::endl;
+        }
+        file << "        }" << std::endl;
+        file << "    }" << std::endl;
+        file << "    types type(const ids& id)" << std::endl;
+        file << "    {" << std::endl;
+        file << "        switch (id)" << std::endl;
+        file << "        {" << std::endl;
+        for (uint32_t i = 0; i < st.fields.size(); i++)
+        {
+            const auto &member = st.fields[i];
+            file << "        case ids::" << member.name << ": return types::" << member.type << ";" << std::endl;
+        }
+        file << "        default: return types::unknown;" << std::endl;
+        file << "        }" << std::endl;
+        file << "    }" << std::endl;
+        file << "    uint32_t size(const ids& id)" << std::endl;
+        file << "    {" << std::endl;
+        file << "        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];" << std::endl;
+        file << "        Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);" << std::endl;
+        file << "        const uint32_t offset = address(id, table);" << std::endl;
+        file << "        return *reinterpret_cast<uint32_t*>(&ptr[offset]);" << std::endl;
+        file << "    }" << std::endl;
+        file << std::endl;
+        // === =============================== ===
+        // ==           fields staff            ==
+        // === =============================== ===
+        for (const auto &member : st.fields)
+        {
+            const std::string *type;
+            const auto &stType = standard.find(member.type);
+            if (stType == standard.end())
+                type = &member.type;
+            else
+                type = &stType->second;
+            const std::string &name = member.name;
+            const bool &isArray = member.isArray;
+            const bool &isOptional = member.isOptional;
+            const bool &isBuiltIn = member.isBuiltIn;
+            // === =============================== ===
+            // ==                has                ==
+            // === =============================== ===
+            file << "    bool has_" << name << "()" << std::endl;
             file << "    {" << std::endl;
             if (isOptional)
             {
-                file << "        return getSizeById(ids::" << name << ") != 0;" << std::endl;
+                file << "        return has(ids::" << name << ") != 0;" << std::endl;
             }
             else
             {
                 file << "        return true;" << std::endl;
             }
             file << "    }" << std::endl;
-            if (isOptional)
+            // === =============================== ===
+            // ==               size                ==
+            // === =============================== ===
+            file << "    uint32_t size_" << name << "()" << std::endl;
+            file << "    {" << std::endl;
+            if (isBuiltIn)
             {
-                if (isArray)
+                if (isOptional)
                 {
-                    file << "    void add_" << name << "(const uint32_t size)" << std::endl;
-                    file << "    {" << std::endl;
-                    if (type == tokenBytes)
-                        file << "        addDataById(ids::" << name << ", size);" << std::endl;
+                    if (*type == tokenBytes)
+                    {
+                        file << "        return size(ids::" << name << ");" << std::endl;
+                    }
+                    else if (isArray)
+                    {
+                        file << "        return size(ids::" << name << ") / sizeof(" << *type << ");" << std::endl;
+                    }
                     else
-                        file << "        addDataById(ids::" << name << ", size * sizeof(" << type << "));" << std::endl;
+                    {
+                        file << "        return size(ids::" << name << ");" << std::endl;
+                    }
                 }
                 else
                 {
-                    file << "    void add_" << name << "()" << std::endl;
-                    file << "    {" << std::endl;
-                    file << "        addDataById(ids::" << name << ", sizeof(" << type << "));" << std::endl;
+                    file << "        return sizeof(" << *type << ");" << std::endl;
                 }
             }
             else
             {
-                file << "    void add_" << name << "()" << std::endl;
-                file << "    {" << std::endl;
-            }
-            file << "    }" << std::endl;
-            if (isOptional)
-            {
                 if (isArray)
                 {
-                    if (type == tokenBytes)
+                    file << "        return size(ids::" << name << ") / sizeof(" << *type << "::Table);" << std::endl;
+                }
+                else
+                {
+                    file << "        return size(ids::" << name << ") / sizeof(" << *type << "::Table);" << std::endl;
+                }
+            }
+            file << "    }" << std::endl;
+            // === =============================== ===
+            // ==                get                ==
+            // === =============================== ===
+            if (isBuiltIn)
+            {
+                if (isOptional)
+                {
+                    if (*type == tokenBytes)
                     {
-                        file << "    const void* get_" << name << "()" << std::endl;
+                        file << "    const uint8_t* get_" << name << "()" << std::endl;
                         file << "    {" << std::endl;
-                        file << "        return getDataById(ids::" << name << ");" << std::endl;
+                        file << "        return reinterpret_cast<const uint8_t*>(get(ids::" << name << "));" << std::endl;
                     }
-                    else
+                    else if (isArray)
                     {
-                        file << "    const " << type << "* get_" << name << "()" << std::endl;
+                        file << "    const " << *type << "* get_" << name << "()" << std::endl;
                         file << "    {" << std::endl;
-                        file << "        return reinterpret_cast<" << type << "*>(getDataById(ids::" << name << "));" << std::endl;
+                        file << "        return reinterpret_cast<" << *type << "*>(get(ids::" << name << "));" << std::endl;
                         file << "    }" << std::endl;
-                        file << "    const " << type << "& get_" << name << "(const uint32_t index)" << std::endl;
+                        file << "    const " << *type << "& get_" << name << "(const uint32_t index)" << std::endl;
                         file << "    {" << std::endl;
-                        file << "        const " << type << "* ptr = reinterpret_cast<" << type << "*>(getDataById(ids::" << name << "));" << std::endl;
+                        file << "        const " << *type << "* ptr = reinterpret_cast<" << *type << "*>(get(ids::" << name << "));" << std::endl;
                         file << "        if (!ptr)" << std::endl;
                         file << "            throw std::logic_error(\"Nullptr\");" << std::endl;
                         file << "        return ptr[index];" << std::endl;
                     }
+                    else
+                    {
+                        file << "    " << *type << " get_" << name << "()" << std::endl;
+                        file << "    {" << std::endl;
+                        file << "        " << *type << " dst;" << std::endl;
+                        file << "        _inner_::copybybytes(get(ids::" << name << "), &dst, sizeof(" << *type << "));" << std::endl;
+                        file << "        return dst;" << std::endl;
+                    }
                 }
                 else
                 {
-                    file << "    const " << type << "& get_" << name << "()" << std::endl;
+                    file << "    " << *type << " get_" << name << "()" << std::endl;
                     file << "    {" << std::endl;
-                    file << "        return *reinterpret_cast<" << type << "*>(getDataById(ids::" << name << "));" << std::endl;
+                    file << "        " << *type << " dst;" << std::endl;
+                    file << "        _inner_::copybybytes(get(ids::" << name << "), &dst, sizeof(" << *type << "));" << std::endl;
+                    file << "        return dst;" << std::endl;
                 }
             }
             else
-            {
-                file << "    const " << type << "& get_" << name << "()" << std::endl;
-                file << "    {" << std::endl;
-                file << "        const staticData* data = m_from" << std::endl;
-                file << "            ? reinterpret_cast<const staticData*>(&m_from[sizeof(_inner_::header)])" << std::endl;
-                file << "            : reinterpret_cast<const staticData*>(&m_buffer[sizeof(_inner_::header)]);" << std::endl;
-                file << "        return data->" << name << ";" << std::endl;
-            }
-            file << "}" << std::endl;
-            if (isOptional)
             {
                 if (isArray)
                 {
-                    if (type == tokenBytes)
+                    file << "    " << *type << "& get_" << name << "(const uint32_t index)" << std::endl;
+                    file << "    {" << std::endl;
+                    file << "        if (index >= custom." << name << ".size())" << std::endl;
+                    file << "            throw std::logic_error(\"Nullref\");" << std::endl;
+                    file << "        return custom." << name << "[index];" << std::endl;
+                }
+                else
+                {
+                    file << "    " << *type << "& get_" << name << "()" << std::endl;
+                    file << "    {" << std::endl;
+                    file << "        if (custom." << name << ".empty())" << std::endl;
+                    file << "            throw std::logic_error(\"Nullref\");" << std::endl;
+                    file << "        return custom." << name << "[0];" << std::endl;
+                }
+            }
+            file << "    }" << std::endl;
+            // === =============================== ===
+            // ==                set                ==
+            // === =============================== ===
+            if (isBuiltIn)
+            {
+                if (isOptional)
+                {
+                    if (*type == tokenBytes)
                     {
-                        file << "    void set_" << name << "(const void* " << name << ")" << std::endl;
+                        file << "    void set_" << name << "(const void* data, const uint32_t numberOfBytes)" << std::endl;
                         file << "    {" << std::endl;
-                        file << "        const uint32_t size = getSizeById(ids::" << name << ");" << std::endl;
-                        file << "        if (size == 0)" << std::endl;
-                        file << "            throw std::logic_error(\"Zero size\");" << std::endl;
-                        file << "        const uint8_t* src = reinterpret_cast<const uint8_t*>(" << name << ");" << std::endl;
-                        file << "        uint8_t* dst = reinterpret_cast<uint8_t*>(getDataById(ids::" << name << "));" << std::endl;
-                        file << "        for (uint32_t i = 0; i < size; i++)" << std::endl;
-                        file << "            dst[i] = src[i];" << std::endl;
+                        file << "        set(ids::" << name << ", data, numberOfBytes);" << std::endl;
+                    }
+                    else if (isArray)
+                    {
+                        file << "    void set_" << name << "(const " << *type << "* data, const uint32_t numberOfElements)" << std::endl;
+                        file << "    {" << std::endl;
+                        file << "        set(ids::" << name << ", data, numberOfElements * sizeof(" << *type << "));" << std::endl;
+                        file << "    }" << std::endl;
+                        file << "    void set_" << name << "(const uint32_t index, const " << *type << "& element)" << std::endl;
+                        file << "    {" << std::endl;
+                        file << "        " << *type << "* ptr = reinterpret_cast<" << *type << "*>(get(ids::" << name << "));" << std::endl;
+                        file << "        if (!ptr)" << std::endl;
+                        file << "            throw std::logic_error(\"Nullptr\");" << std::endl;
+                        file << "        _inner_::copybybytes(&element, &ptr[index], sizeof(" << *type << "));" << std::endl;
                     }
                     else
                     {
-                        file << "    void set_" << name << "(const " << type << "* " << name << ")" << std::endl;
+                        file << "    void set_" << name << "(const " << *type << "& " << name << ")" << std::endl;
                         file << "    {" << std::endl;
-                        file << "        const uint32_t size = getSizeById(ids::" << name << ");" << std::endl;
-                        file << "        const uint8_t* src = reinterpret_cast<const uint8_t*>(" << name << ");" << std::endl;
-                        file << "        uint8_t* dst = reinterpret_cast<uint8_t*>(getDataById(ids::" << name << "));" << std::endl;
-                        file << "        for (uint32_t i = 0; i < size; i++)" << std::endl;
-                        file << "            dst[i] = src[i];" << std::endl;
-                        file << "    }" << std::endl;
-                        file << "    void set_" << name << "(const uint32_t index, const " << type << "& element)" << std::endl;
-                        file << "    {" << std::endl;
-                        file << "        " << type << "* ptr = reinterpret_cast<" << type << "*>(getDataById(ids::" << name << "));" << std::endl;
-                        file << "        if (!ptr)" << std::endl;
-                        file << "            throw std::logic_error(\"Nullptr\");" << std::endl;
-                        file << "        ptr[index] = element;" << std::endl;
+                        file << "        set(ids::" << name << ", &" << name << ", sizeof(" << *type << "));" << std::endl;
                     }
                 }
                 else
                 {
-                    file << "    void set_" << name << "(const " << type << "& " << name << ")" << std::endl;
+                    file << "    void set_" << name << "(const " << *type << "& " << name << ")" << std::endl;
                     file << "    {" << std::endl;
-                    file << "        *reinterpret_cast<" << type << "*>(getDataById(ids::" << name << ")) = " << name << ";" << std::endl;
+                    file << "        _inner_::copybybytes(&" << name << ", get(ids::" << name << "), sizeof(" << *type << "));" << std::endl;
                 }
             }
             else
             {
-                file << "    void set_" << name << "(const " << type << "& " << name << ")" << std::endl;
-                file << "    {" << std::endl;
-                file << "        staticData* data = reinterpret_cast<staticData*>(&m_buffer[sizeof(_inner_::header)]);" << std::endl;
-                file << "        data->" << name << " = " << name << ";" << std::endl;
+                if (isArray)
+                {
+                    file << "    void set_" << name << "(const uint32_t numberOfElements)" << std::endl;
+                    file << "    {" << std::endl;
+                    file << "        if (!custom." << name << ".empty())" << std::endl;
+                    file << "            throw std::logic_error(\"Already setted\");" << std::endl;
+                    file << "        set(ids::" << name << ", nullptr, numberOfElements * sizeof(" << *type << "::Table));" << std::endl;
+                    file << "        custom." << name << ".resize(numberOfElements);" << std::endl;
+                    file << "        Table *table = getTable();" << std::endl;
+                    file << "        for (uint32_t i = 0; i < numberOfElements; ++i)" << std::endl;
+                    file << "        {" << std::endl;
+                    file << "            custom." << name << "[i].m_table = address(ids::" << name << ", table) + sizeof(" << *type << "::Table) * i + sizeof(uint32_t);" << std::endl;
+                    file << "            custom." << name << "[i].m_buffer = m_buffer;" << std::endl;
+                    file << "        }" << std::endl;
+                }
+                else
+                {
+                    file << "    void set_" << name << "()" << std::endl;
+                    file << "    {" << std::endl;
+                    file << "        if (!custom." << name << ".empty())" << std::endl;
+                    file << "            throw std::logic_error(\"Already setted\");" << std::endl;
+                    file << "        set(ids::" << name << ", nullptr, sizeof(" << *type << "::Table));" << std::endl;
+                    file << "        custom." << name << ".resize(1);" << std::endl;
+                    file << "        Table *table = getTable();" << std::endl;
+                    file << "        custom." << name << "[0].m_table = address(ids::" << name << ", table) + sizeof(uint32_t);" << std::endl;
+                    file << "        custom." << name << "[0].m_buffer = m_buffer;" << std::endl;
+                }
             }
             file << "    }" << std::endl;
             file << std::endl;
         }
-        file << "    bool from(const void* ptr)" << std::endl;
+        // === =============================== ===
+        // ==           packet's staff          ==
+        // === =============================== ===
+        file << "    void create(const uint32_t reserve = 0)" << std::endl;
+        file << "    {" << std::endl;
+        file << "        m_from = nullptr;" << std::endl;
+        file << "        m_buffer = std::make_shared<std::vector<uint8_t>>();" << std::endl;
+        file << "        m_buffer->reserve(reserve);" << std::endl;
+        file << "        m_buffer->resize(sizeof(_inner_::header) + sizeof(Table));" << std::endl;
+        file << "        _inner_::header *h = reinterpret_cast<_inner_::header*>(&m_buffer->data()[0]);" << std::endl;
+        file << "        h->signature0  = 'i';" << std::endl;
+        file << "        h->signature1  = 'b';" << std::endl;
+        file << "        m_table = sizeof(_inner_::header);" << std::endl;
+        file << "    }" << std::endl;
+        file << "    bool from(uint8_t* ptr)" << std::endl;
         file << "    {" << std::endl;
         file << "        if (!ptr)" << std::endl;
         file << "            return false;" << std::endl;
         file << "        const _inner_::header* h = reinterpret_cast<const _inner_::header*>(ptr);" << std::endl;
         file << "        if (h->signature0 != 'i' ||" << std::endl;
-        file << "            h->signature1 != 'b' ||" << std::endl;
-        file << "            h->version != 1)" << std::endl;
+        file << "            h->signature1 != 'b')" << std::endl;
         file << "            return false;" << std::endl;
-        file << "        if (!m_buffer.empty())" << std::endl;
-        file << "            m_buffer.clear();" << std::endl;
-        file << "        m_from = reinterpret_cast<uint8_t*>(const_cast<void*>(ptr));" << std::endl;
+        file << "        if (!m_buffer->empty())" << std::endl;
+        file << "            m_buffer->clear();" << std::endl;
+        file << "        m_from = ptr;" << std::endl;
+        for (const auto &member : st.fields)
+        {
+            const bool &isBuiltIn = member.isBuiltIn;
+            if (isBuiltIn)
+                continue;
+            const std::string &name = member.name;
+            const bool &isOptional = member.isOptional;
+            const std::string &type = member.type;
+
+            file << "        if (getTable()->__" << name << ")" << std::endl;
+            file << "        {" << std::endl;
+            file << "            const uint32_t number = size(ids::" << name << ") / sizeof(" << type << "::Table);" << std::endl;
+            file << "            custom." << name << ".reserve(number);" << std::endl;
+            file << "            for (uint32_t i = 0; i < number; ++i)" << std::endl;
+            file << "            {" << std::endl;
+            file << "                custom." << name << ".emplace_back();" << std::endl;
+            file << "                custom." << name << ".back().from(ptr);" << std::endl;
+            file << "                auto table = reinterpret_cast<" << type << "::Table*>(ptr + getTable()->__" << name << " + sizeof(uint32_t) + sizeof(" << type << "::Table) * i);" << std::endl;
+            file << "                custom." << name << ".back().m_table = reinterpret_cast<uint8_t*>(table) - ptr;" << std::endl;
+            file << "            }" << std::endl;
+            file << "        }" << std::endl;
+        }
         file << "        return true;" << std::endl;
         file << "    }" << std::endl;
-        file << "    void* to()" << std::endl;
+        file << "    uint8_t* to()" << std::endl;
         file << "    {" << std::endl;
         file << "        if (m_from)" << std::endl;
-        file << "            return nullptr;" << std::endl;
+        file << "            return m_from;" << std::endl;
         file << "        else" << std::endl;
-        file << "            return m_buffer.data();" << std::endl;
-        file << "    }" << std::endl;
-        file << "    std::unique_ptr<void*> to(const uint32_t compression)" << std::endl;
-        file << "    {" << std::endl;
-        file << "        switch (compression)" << std::endl;
-        file << "        {" << std::endl;
-        file << "        case INB_NO_COMPRESSION:" << std::endl;
-        file << "            return nullptr;" << std::endl;
-        file << "        case INB_TABLE_COMPRESSION:" << std::endl;
-        file << "            return nullptr;" << std::endl;
-        file << "        case INB_FULL_COMPRESSION:" << std::endl;
-        file << "            return nullptr;" << std::endl;
-        file << "        default:" << std::endl;
-        file << "            break;" << std::endl;
-        file << "        }" << std::endl;
-        file << "        return nullptr;" << std::endl;
+        file << "            return m_buffer->data();" << std::endl;
         file << "    }" << std::endl;
         file << "    uint32_t size() const" << std::endl;
         file << "    {" << std::endl;
         file << "        if (m_from)" << std::endl;
         file << "            return 0;" << std::endl;
         file << "        else" << std::endl;
-        file << "            return static_cast<uint32_t>(m_buffer.size());" << std::endl;
+        file << "            return static_cast<uint32_t>(m_buffer->size());" << std::endl;
         file << "    }" << std::endl;
         file << std::endl;
-        file << "private:" << std::endl;
-        if (staticCount)
+        //file << "private:" << std::endl;
+        file << "    #pragma pack(push, 1)" << std::endl;
+        file << "    struct Table" << std::endl;
+        file << "    {" << std::endl;
+        for (const auto &member : st.fields)
         {
-            file << "    #pragma pack(push, 1)" << std::endl;
-            file << "    struct staticData" << std::endl;
+            const std::string &name = member.name;
+            const bool &isOptional = member.isOptional;
+            const std::string *type;
+            const auto &stType = standard.find(member.type);
+            if (stType == standard.end())
+                type = &member.type;
+            else
+                type = &stType->second;
+            if (isOptional)
+                file << "        uint32_t __" << name << " = 0;" << std::endl;
+            else
+                file << "        " << *type << " " << name << ";" << std::endl;
+        }
+        file << "    };" << std::endl;
+        file << "    #pragma pack(pop)" << std::endl;
+        file << std::endl;
+        file << "    Table* getTable()" << std::endl;
+        file << "    {" << std::endl;
+        file << "        return reinterpret_cast<Table*>(&to()[m_table]);" << std::endl;
+        file << "    }" << std::endl;
+        file << "    uint32_t insert(const uint32_t size)" << std::endl;
+        file << "    {" << std::endl;
+        file << "        if (m_from)" << std::endl;
+        file << "            return 0;" << std::endl;
+        file << "        else" << std::endl;
+        file << "        {" << std::endl;
+        file << "            const uint32_t offset = static_cast<uint32_t>(m_buffer->size());" << std::endl;
+        file << "            m_buffer->resize(m_buffer->size() + size);" << std::endl;
+        file << "            return offset;" << std::endl;
+        file << "        }" << std::endl;
+        file << "    }" << std::endl;
+        file << "    uint32_t& address(const ids& id, Table* table)" << std::endl;
+        file << "    {" << std::endl;
+        file << "        switch (id)" << std::endl;
+        file << "        {" << std::endl;
+        for (const auto &member : st.fields)
+        {
+            const std::string &name = member.name;
+            const bool &isOptional = member.isOptional;
+            //const std::string *type;
+            //const auto &stType = standard.find(member.second.type);
+            //if (stType == standard.end())
+            //    type = &member.second.type;
+            //else
+            //    type = &stType->second;
+            if (!isOptional)
+                continue;
+            file << "        case ids::" << name << ": return table->__" << name << ";" << std::endl;
+        }
+        file << "        default: return _inner_::zero;" << std::endl;
+        file << "        }" << std::endl;
+        file << "    }" << std::endl;
+        file << std::endl;
+        if (builtInCount)
+        {
+            file << "    struct" << std::endl;
             file << "    {" << std::endl;
-            for (const auto &member : st.second.first)
+            for (const auto &member : st.fields)
             {
-                const auto &stType = standard.find(member.second.type);
-                if (stType == standard.end())
+                const bool &isBuiltIn = member.isBuiltIn;
+                if (isBuiltIn)
                     continue;
-                //const bool &isArray = member.second.isArray;
-                const bool &isOptional = member.second.isOptional;
-                if (isOptional)
-                    continue;
-                const std::string &type = stType->second;
-                const std::string &name = member.first;
-                file << "        " << type << " " << name << ";" << std::endl;
+                const std::string &name = member.name;
+                const std::string &type = member.type;
+                file << "        std::vector<" << type << "> " << name << ";" << std::endl;
             }
-            file << "    };" << std::endl;
-            file << "    #pragma pack(pop)" << std::endl;
+            file << "    } custom;" << std::endl;
             file << std::endl;
         }
         file << "    uint8_t* m_from = nullptr;" << std::endl;
-        file << "    std::vector<uint8_t> m_buffer;" << std::endl;
-        file << "    const uint16_t m_tableSize = " << optionalCount << ";" << std::endl;
+        file << "    std::shared_ptr<std::vector<uint8_t>> m_buffer;" << std::endl;
+        file << "    uint32_t m_table = 0;" << std::endl;
         file << "};" << std::endl;
         file << std::endl;
     }

@@ -7,26 +7,46 @@ enum Color
     BLUE
 }
 
-struct Vec2f
+struct OnlyStatic
+{
+    a : int8
+    b : uint16
+    c : int32
+    d : uint64
+    e : float32
+    f : float64
+}
+
+struct OnlyOptional
+{
+    a : int8    optional
+    b : uint16  optional
+    c : int32   optional
+    d : uint64  optional
+    e : float32 optional
+    f : float64 optional
+}
+
+struct Vec3f
 {
     x : float32
     y : float32
+    z : float32
 }
 
-struct Vec3i
+struct Arrays
 {
-    x : int32 optional
-    y : int32 optional
-    z : int32 optional
+    b : bytes
+    m : int16[]
+    v : Vec3f[]
 }
 
-struct Packet
+struct Complex
 {
-    vUint32 : uint32
-    vBytes  : bytes optional
-    vUint8  : uint8 optional
-    point2f : Vec2f optional
-    point3i : Vec3i
-    vArray  : int64[]
+//    vUint32 : uint32
+//    vBytes  : bytes optional
+//    vUint8  : uint8 optional
+//    point2f : Vec2f optional
+//    point3i : Vec3i
+//    vArray  : int64[]
 }
-

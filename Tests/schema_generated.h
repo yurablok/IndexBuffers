@@ -4,30 +4,24 @@
 #include <vector>
 #include <memory>
 
-#ifndef INB_NO_COMPRESSION
-#   define INB_NO_COMPRESSION    0
-#endif
-#ifndef INB_TABLE_COMPRESSION
-#   define INB_TABLE_COMPRESSION 1
-#endif
-#ifndef INB_FULL_COMPRESSION
-#   define INB_FULL_COMPRESSION  2
-#endif
-
 namespace ExtNS
 {
 namespace IntNS
 {
 namespace _inner_
 {
+    static void copybybytes(const void* src, void* dst, const uint32_t size)
+    {
+        for (uint32_t i = 0; i < size; ++i)
+            reinterpret_cast<uint8_t*>(dst)[i] = reinterpret_cast<const uint8_t*>(src)[i];
+    }
     struct header
     {
         uint8_t signature0 = 'i';
         uint8_t signature1 = 'b';
-        uint16_t version    :  3;
-        uint16_t compression:  2;
-        uint16_t tableSize  : 11;
+        uint16_t type           ;
     };
+    static uint32_t zero = 0;
 }
 
 enum class Color
@@ -36,635 +30,680 @@ enum class Color
     GREEN = 3,
     BLUE = 4
 };
+static const char* Color_str(const Color& id)
+{
+    switch (id)
+    {
+    case Color::RED: return "RED";
+    case Color::GREEN: return "GREEN";
+    case Color::BLUE: return "BLUE";
+    default: return "_?unknown_Color?_";
+    }
+}
 
-class ArrayTest;
-class Packet;
-class Vec2f;
-class Vec3i;
 
-class ArrayTest
+class OnlyStatic;
+class OnlyOptional;
+class Vec3f;
+class Arrays;
+class Complex;
+
+class OnlyStatic
 {
 public:
-    void create(const uint32_t reserve = 0)
+    OnlyStatic(const uint32_t reserve = 0)
     {
-        m_from = nullptr;
-        m_buffer.reserve(reserve);
-        m_buffer.resize(sizeof(_inner_::header) + sizeof(m_tableSize) * sizeof(uint32_t) + sizeof(staticData));
-        _inner_::header *h = reinterpret_cast<_inner_::header*>(&m_buffer[0]);
-        h->signature0  = 'i';
-        h->signature1  = 'b';
-        h->version     = 1;
-        h->compression = INB_NO_COMPRESSION;
-        h->tableSize   = m_tableSize;
-        if (m_tableSize)
-        {
-           uint32_t* table = reinterpret_cast<uint32_t*>(
-               &m_buffer[0] + sizeof(_inner_::header)+sizeof(staticData));
-           for (uint32_t i = 0; i < m_tableSize; i++)
-               table[i] = 0;
-        }
+        create(reserve);
+    }
+    OnlyStatic(uint8_t *from_)
+    {
+        this->from(from_);
     }
 
     enum class ids
     {
-        raw,
-        arr,
+        a,
+        b,
+        c,
+        d,
+        e,
+        f,
         _size_
     };
-    const char* getIdString(const ids& id) const
+    static const char* id_str(const ids& id)
     {
         switch (id)
         {
-        case ids::raw: return "raw"; 
-        case ids::arr: return "arr"; 
+        case ids::a: return "a"; 
+        case ids::b: return "b"; 
+        case ids::c: return "c"; 
+        case ids::d: return "d"; 
+        case ids::e: return "e"; 
+        case ids::f: return "f"; 
         default: return "_?unknown_id?_";
         }
     }
-    void* getDataById(const ids& id)
+
+    enum class types
     {
-        uint8_t* ptr = m_from ? m_from : m_buffer.data();
-        const uint32_t* table = reinterpret_cast<const uint32_t*>(
-                    &ptr[0] + sizeof(_inner_::header) + sizeof(staticData));
-        const uint32_t offset = table[static_cast<uint32_t>(id)];
-        if (offset == 0)
-            throw std::logic_error("There is no field '"
-                + std::string(getIdString(id)) + "' in the packet");
-        return reinterpret_cast<void*>(&ptr[0] + offset + sizeof(uint32_t));
+        int8,
+        uint8,
+        int16,
+        uint16,
+        int32,
+        uint32,
+        int64,
+        uint64,
+        float32,
+        float64,
+        bytes,
+        unknown
+};
+
+    uint32_t has(const ids& id)
+    {
+        return address(id, getTable());
     }
-    uint32_t getSizeById(const ids& id) const
+    uint8_t* get(const ids& id)
     {
-        const uint8_t* ptr = m_from ? m_from : m_buffer.data();
-        const uint32_t* table = reinterpret_cast<const uint32_t*>(
-                    &ptr[0] + sizeof(_inner_::header) + sizeof(staticData));
-        const uint32_t offset = table[static_cast<uint32_t>(id)];
-        if (offset == 0)
-            return 0;
-        else
-            return *reinterpret_cast<const uint32_t*>(&ptr[0] + offset);
+        Table* table = getTable();
+        uint8_t* ptr = to();
+        switch (id)
+        {
+        case ids::a:
+            return reinterpret_cast<uint8_t*>(&table->a);
+        case ids::b:
+            return reinterpret_cast<uint8_t*>(&table->b);
+        case ids::c:
+            return reinterpret_cast<uint8_t*>(&table->c);
+        case ids::d:
+            return reinterpret_cast<uint8_t*>(&table->d);
+        case ids::e:
+            return reinterpret_cast<uint8_t*>(&table->e);
+        case ids::f:
+            return reinterpret_cast<uint8_t*>(&table->f);
+        default:
+            return nullptr;
+        }
     }
-    void addDataById(const ids& id, const uint32_t size)
+    void set(const ids& id, const void* data, const uint32_t size)
     {
-        if (m_from)
-            throw std::logic_error("We cannot edit received packets");
-        uint32_t* table = reinterpret_cast<uint32_t*>(
-            &m_buffer[0] + sizeof(_inner_::header) + sizeof(staticData));
-        const uint32_t offset = table[static_cast<uint32_t>(id)];
-        if (offset != 0)
-            return;
-        const uint32_t newOffset = static_cast<uint32_t>(m_buffer.size());
-        m_buffer.resize(m_buffer.size() + sizeof(uint32_t) + size);
-        table = reinterpret_cast<uint32_t*>(
-            &m_buffer[0] + sizeof(_inner_::header) + sizeof(staticData));
-        table[static_cast<uint32_t>(id)] = newOffset;
-        *reinterpret_cast<uint32_t*>(&m_buffer[0] + newOffset) = size;
+        switch (id)
+        {
+        case ids::a:
+            if (data)
+                _inner_::copybybytes(data, &getTable()->a, size);
+            break;
+        case ids::b:
+            if (data)
+                _inner_::copybybytes(data, &getTable()->b, size);
+            break;
+        case ids::c:
+            if (data)
+                _inner_::copybybytes(data, &getTable()->c, size);
+            break;
+        case ids::d:
+            if (data)
+                _inner_::copybybytes(data, &getTable()->d, size);
+            break;
+        case ids::e:
+            if (data)
+                _inner_::copybybytes(data, &getTable()->e, size);
+            break;
+        case ids::f:
+            if (data)
+                _inner_::copybybytes(data, &getTable()->f, size);
+            break;
+        default:
+            break;
+        }
+    }
+    types type(const ids& id)
+    {
+        switch (id)
+        {
+        case ids::a: return types::int8;
+        case ids::b: return types::uint16;
+        case ids::c: return types::int32;
+        case ids::d: return types::uint64;
+        case ids::e: return types::float32;
+        case ids::f: return types::float64;
+        default: return types::unknown;
+        }
+    }
+    uint32_t size(const ids& id)
+    {
+        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];
+        Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);
+        const uint32_t offset = address(id, table);
+        return *reinterpret_cast<uint32_t*>(&ptr[offset]);
     }
 
-    uint32_t size_raw() const
+    bool has_a()
     {
-        return getSizeById(ids::raw);
+        return true;
     }
-    bool has_raw() const
+    uint32_t size_a()
     {
-        return getSizeById(ids::raw) != 0;
+        return sizeof(int8_t);
     }
-    void add_raw(const uint32_t size)
+    int8_t get_a()
     {
-        addDataById(ids::raw, size);
+        int8_t dst;
+        _inner_::copybybytes(get(ids::a), &dst, sizeof(int8_t));
+        return dst;
     }
-    const void* get_raw()
+    void set_a(const int8_t& a)
     {
-        return getDataById(ids::raw);
-}
-    void set_raw(const void* raw)
-    {
-        const uint32_t size = getSizeById(ids::raw);
-        if (size == 0)
-            throw std::logic_error("Zero size");
-        const uint8_t* src = reinterpret_cast<const uint8_t*>(raw);
-        uint8_t* dst = reinterpret_cast<uint8_t*>(getDataById(ids::raw));
-        for (uint32_t i = 0; i < size; i++)
-            dst[i] = src[i];
+        _inner_::copybybytes(&a, get(ids::a), sizeof(int8_t));
     }
 
-    uint32_t size_arr() const
+    bool has_b()
     {
-        return getSizeById(ids::arr) / sizeof(uint32_t);
+        return true;
     }
-    bool has_arr() const
-    {
-        return getSizeById(ids::arr) != 0;
-    }
-    void add_arr(const uint32_t size)
-    {
-        addDataById(ids::arr, size * sizeof(uint32_t));
-    }
-    const uint32_t* get_arr()
-    {
-        return reinterpret_cast<uint32_t*>(getDataById(ids::arr));
-    }
-    const uint32_t& get_arr(const uint32_t index)
-    {
-        const uint32_t* ptr = reinterpret_cast<uint32_t*>(getDataById(ids::arr));
-        if (!ptr)
-            throw std::logic_error("Nullptr");
-        return ptr[index];
-}
-    void set_arr(const uint32_t* arr)
-    {
-        const uint32_t size = getSizeById(ids::arr);
-        const uint8_t* src = reinterpret_cast<const uint8_t*>(arr);
-        uint8_t* dst = reinterpret_cast<uint8_t*>(getDataById(ids::arr));
-        for (uint32_t i = 0; i < size; i++)
-            dst[i] = src[i];
-    }
-    void set_arr(const uint32_t index, const uint32_t& element)
-    {
-        uint32_t* ptr = reinterpret_cast<uint32_t*>(getDataById(ids::arr));
-        if (!ptr)
-            throw std::logic_error("Nullptr");
-        ptr[index] = element;
-    }
-
-    uint32_t size_var() const
+    uint32_t size_b()
     {
         return sizeof(uint16_t);
     }
-    bool has_var() const
+    uint16_t get_b()
+    {
+        uint16_t dst;
+        _inner_::copybybytes(get(ids::b), &dst, sizeof(uint16_t));
+        return dst;
+    }
+    void set_b(const uint16_t& b)
+    {
+        _inner_::copybybytes(&b, get(ids::b), sizeof(uint16_t));
+    }
+
+    bool has_c()
     {
         return true;
     }
-    void add_var()
+    uint32_t size_c()
     {
+        return sizeof(int32_t);
     }
-    const uint16_t& get_var()
+    int32_t get_c()
     {
-        const staticData* data = m_from
-            ? reinterpret_cast<const staticData*>(&m_from[sizeof(_inner_::header)])
-            : reinterpret_cast<const staticData*>(&m_buffer[sizeof(_inner_::header)]);
-        return data->var;
-}
-    void set_var(const uint16_t& var)
+        int32_t dst;
+        _inner_::copybybytes(get(ids::c), &dst, sizeof(int32_t));
+        return dst;
+    }
+    void set_c(const int32_t& c)
     {
-        staticData* data = reinterpret_cast<staticData*>(&m_buffer[sizeof(_inner_::header)]);
-        data->var = var;
+        _inner_::copybybytes(&c, get(ids::c), sizeof(int32_t));
     }
 
-    bool from(const void* ptr)
+    bool has_d()
+    {
+        return true;
+    }
+    uint32_t size_d()
+    {
+        return sizeof(uint64_t);
+    }
+    uint64_t get_d()
+    {
+        uint64_t dst;
+        _inner_::copybybytes(get(ids::d), &dst, sizeof(uint64_t));
+        return dst;
+    }
+    void set_d(const uint64_t& d)
+    {
+        _inner_::copybybytes(&d, get(ids::d), sizeof(uint64_t));
+    }
+
+    bool has_e()
+    {
+        return true;
+    }
+    uint32_t size_e()
+    {
+        return sizeof(float);
+    }
+    float get_e()
+    {
+        float dst;
+        _inner_::copybybytes(get(ids::e), &dst, sizeof(float));
+        return dst;
+    }
+    void set_e(const float& e)
+    {
+        _inner_::copybybytes(&e, get(ids::e), sizeof(float));
+    }
+
+    bool has_f()
+    {
+        return true;
+    }
+    uint32_t size_f()
+    {
+        return sizeof(double);
+    }
+    double get_f()
+    {
+        double dst;
+        _inner_::copybybytes(get(ids::f), &dst, sizeof(double));
+        return dst;
+    }
+    void set_f(const double& f)
+    {
+        _inner_::copybybytes(&f, get(ids::f), sizeof(double));
+    }
+
+    void create(const uint32_t reserve = 0)
+    {
+        m_from = nullptr;
+        m_buffer = std::make_shared<std::vector<uint8_t>>();
+        m_buffer->reserve(reserve);
+        m_buffer->resize(sizeof(_inner_::header) + sizeof(Table));
+        _inner_::header *h = reinterpret_cast<_inner_::header*>(&m_buffer->data()[0]);
+        h->signature0  = 'i';
+        h->signature1  = 'b';
+        m_table = sizeof(_inner_::header);
+    }
+    bool from(uint8_t* ptr)
     {
         if (!ptr)
             return false;
         const _inner_::header* h = reinterpret_cast<const _inner_::header*>(ptr);
         if (h->signature0 != 'i' ||
-            h->signature1 != 'b' ||
-            h->version != 1)
+            h->signature1 != 'b')
             return false;
-        if (!m_buffer.empty())
-            m_buffer.clear();
-        m_from = reinterpret_cast<uint8_t*>(const_cast<void*>(ptr));
+        if (!m_buffer->empty())
+            m_buffer->clear();
+        m_from = ptr;
         return true;
     }
-    void* to()
+    uint8_t* to()
     {
         if (m_from)
-            return nullptr;
+            return m_from;
         else
-            return m_buffer.data();
-    }
-    std::unique_ptr<void*> to(const uint32_t compression)
-    {
-        switch (compression)
-        {
-        case INB_NO_COMPRESSION:
-            return nullptr;
-        case INB_TABLE_COMPRESSION:
-            return nullptr;
-        case INB_FULL_COMPRESSION:
-            return nullptr;
-        default:
-            break;
-        }
-        return nullptr;
+            return m_buffer->data();
     }
     uint32_t size() const
     {
         if (m_from)
             return 0;
         else
-            return static_cast<uint32_t>(m_buffer.size());
+            return static_cast<uint32_t>(m_buffer->size());
     }
 
-private:
     #pragma pack(push, 1)
-    struct staticData
+    struct Table
     {
-        uint16_t var;
+        int8_t a;
+        uint16_t b;
+        int32_t c;
+        uint64_t d;
+        float e;
+        double f;
     };
     #pragma pack(pop)
 
+    Table* getTable()
+    {
+        return reinterpret_cast<Table*>(&to()[m_table]);
+    }
+    uint32_t insert(const uint32_t size)
+    {
+        if (m_from)
+            return 0;
+        else
+        {
+            const uint32_t offset = static_cast<uint32_t>(m_buffer->size());
+            m_buffer->resize(m_buffer->size() + size);
+            return offset;
+        }
+    }
+    uint32_t& address(const ids& id, Table* table)
+    {
+        switch (id)
+        {
+        default: return _inner_::zero;
+        }
+    }
+
+    struct
+    {
+    } custom;
+
     uint8_t* m_from = nullptr;
-    std::vector<uint8_t> m_buffer;
-    const uint16_t m_tableSize = 2;
+    std::shared_ptr<std::vector<uint8_t>> m_buffer;
+    uint32_t m_table = 0;
 };
 
-class Packet
+class OnlyOptional
 {
 public:
-    void create(const uint32_t reserve = 0)
+    OnlyOptional(const uint32_t reserve = 0)
     {
-        m_from = nullptr;
-        m_buffer.reserve(reserve);
-        m_buffer.resize(sizeof(_inner_::header) + sizeof(m_tableSize) * sizeof(uint32_t) + sizeof(staticData));
-        _inner_::header *h = reinterpret_cast<_inner_::header*>(&m_buffer[0]);
-        h->signature0  = 'i';
-        h->signature1  = 'b';
-        h->version     = 1;
-        h->compression = INB_NO_COMPRESSION;
-        h->tableSize   = m_tableSize;
-        if (m_tableSize)
-        {
-           uint32_t* table = reinterpret_cast<uint32_t*>(
-               &m_buffer[0] + sizeof(_inner_::header)+sizeof(staticData));
-           for (uint32_t i = 0; i < m_tableSize; i++)
-               table[i] = 0;
-        }
+        create(reserve);
+    }
+    OnlyOptional(uint8_t *from_)
+    {
+        this->from(from_);
     }
 
     enum class ids
     {
-        vBytes,
-        vUint8,
-        point2f,
-        vArray,
+        a,
+        b,
+        c,
+        d,
+        e,
+        f,
         _size_
     };
-    const char* getIdString(const ids& id) const
+    static const char* id_str(const ids& id)
     {
         switch (id)
         {
-        case ids::vBytes: return "vBytes"; 
-        case ids::vUint8: return "vUint8"; 
-        case ids::point2f: return "point2f"; 
-        case ids::vArray: return "vArray"; 
+        case ids::a: return "a"; 
+        case ids::b: return "b"; 
+        case ids::c: return "c"; 
+        case ids::d: return "d"; 
+        case ids::e: return "e"; 
+        case ids::f: return "f"; 
         default: return "_?unknown_id?_";
         }
     }
-    void* getDataById(const ids& id)
+
+    enum class types
     {
-        uint8_t* ptr = m_from ? m_from : m_buffer.data();
-        const uint32_t* table = reinterpret_cast<const uint32_t*>(
-                    &ptr[0] + sizeof(_inner_::header) + sizeof(staticData));
-        const uint32_t offset = table[static_cast<uint32_t>(id)];
-        if (offset == 0)
-            throw std::logic_error("There is no field '"
-                + std::string(getIdString(id)) + "' in the packet");
-        return reinterpret_cast<void*>(&ptr[0] + offset + sizeof(uint32_t));
+        int8,
+        uint8,
+        int16,
+        uint16,
+        int32,
+        uint32,
+        int64,
+        uint64,
+        float32,
+        float64,
+        bytes,
+        unknown
+};
+
+    uint32_t has(const ids& id)
+    {
+        return address(id, getTable());
     }
-    uint32_t getSizeById(const ids& id) const
+    uint8_t* get(const ids& id)
     {
-        const uint8_t* ptr = m_from ? m_from : m_buffer.data();
-        const uint32_t* table = reinterpret_cast<const uint32_t*>(
-                    &ptr[0] + sizeof(_inner_::header) + sizeof(staticData));
-        const uint32_t offset = table[static_cast<uint32_t>(id)];
-        if (offset == 0)
-            return 0;
-        else
-            return *reinterpret_cast<const uint32_t*>(&ptr[0] + offset);
+        Table* table = getTable();
+        uint8_t* ptr = to();
+        switch (id)
+        {
+        case ids::a:
+        case ids::b:
+        case ids::c:
+        case ids::d:
+        case ids::e:
+        case ids::f:
+            return &ptr[address(id, table) + sizeof(uint32_t)];
+        default:
+            return nullptr;
+        }
     }
-    void addDataById(const ids& id, const uint32_t size)
+    void set(const ids& id, const void* data, const uint32_t size)
     {
-        if (m_from)
-            throw std::logic_error("We cannot edit received packets");
-        uint32_t* table = reinterpret_cast<uint32_t*>(
-            &m_buffer[0] + sizeof(_inner_::header) + sizeof(staticData));
-        const uint32_t offset = table[static_cast<uint32_t>(id)];
-        if (offset != 0)
-            return;
-        const uint32_t newOffset = static_cast<uint32_t>(m_buffer.size());
-        m_buffer.resize(m_buffer.size() + sizeof(uint32_t) + size);
-        table = reinterpret_cast<uint32_t*>(
-            &m_buffer[0] + sizeof(_inner_::header) + sizeof(staticData));
-        table[static_cast<uint32_t>(id)] = newOffset;
-        *reinterpret_cast<uint32_t*>(&m_buffer[0] + newOffset) = size;
+        switch (id)
+        {
+        default:
+        {
+            uint32_t offset = has(id);
+            if (offset == 0)
+            {
+                offset = insert(size + sizeof(uint32_t));
+                if (!offset)
+                    return;
+                *reinterpret_cast<uint32_t*>(&m_buffer->data()[offset]) = size;
+                address(id, getTable()) = offset;
+            }
+            if (data)
+                _inner_::copybybytes(data, &m_buffer->data()[offset + sizeof(uint32_t)], size);
+            break;
+        }
+        }
+    }
+    types type(const ids& id)
+    {
+        switch (id)
+        {
+        case ids::a: return types::int8;
+        case ids::b: return types::uint16;
+        case ids::c: return types::int32;
+        case ids::d: return types::uint64;
+        case ids::e: return types::float32;
+        case ids::f: return types::float64;
+        default: return types::unknown;
+        }
+    }
+    uint32_t size(const ids& id)
+    {
+        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];
+        Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);
+        const uint32_t offset = address(id, table);
+        return *reinterpret_cast<uint32_t*>(&ptr[offset]);
     }
 
-    uint32_t size_vUint32() const
+    bool has_a()
     {
-        return sizeof(uint32_t);
+        return has(ids::a) != 0;
     }
-    bool has_vUint32() const
+    uint32_t size_a()
     {
-        return true;
+        return size(ids::a);
     }
-    void add_vUint32()
+    int8_t get_a()
     {
+        int8_t dst;
+        _inner_::copybybytes(get(ids::a), &dst, sizeof(int8_t));
+        return dst;
     }
-    const uint32_t& get_vUint32()
+    void set_a(const int8_t& a)
     {
-        const staticData* data = m_from
-            ? reinterpret_cast<const staticData*>(&m_from[sizeof(_inner_::header)])
-            : reinterpret_cast<const staticData*>(&m_buffer[sizeof(_inner_::header)]);
-        return data->vUint32;
-}
-    void set_vUint32(const uint32_t& vUint32)
-    {
-        staticData* data = reinterpret_cast<staticData*>(&m_buffer[sizeof(_inner_::header)]);
-        data->vUint32 = vUint32;
+        set(ids::a, &a, sizeof(int8_t));
     }
 
-    uint32_t size_vBytes() const
+    bool has_b()
     {
-        return getSizeById(ids::vBytes);
+        return has(ids::b) != 0;
     }
-    bool has_vBytes() const
+    uint32_t size_b()
     {
-        return getSizeById(ids::vBytes) != 0;
+        return size(ids::b);
     }
-    void add_vBytes(const uint32_t size)
+    uint16_t get_b()
     {
-        addDataById(ids::vBytes, size);
+        uint16_t dst;
+        _inner_::copybybytes(get(ids::b), &dst, sizeof(uint16_t));
+        return dst;
     }
-    const void* get_vBytes()
+    void set_b(const uint16_t& b)
     {
-        return getDataById(ids::vBytes);
-}
-    void set_vBytes(const void* vBytes)
-    {
-        const uint32_t size = getSizeById(ids::vBytes);
-        if (size == 0)
-            throw std::logic_error("Zero size");
-        const uint8_t* src = reinterpret_cast<const uint8_t*>(vBytes);
-        uint8_t* dst = reinterpret_cast<uint8_t*>(getDataById(ids::vBytes));
-        for (uint32_t i = 0; i < size; i++)
-            dst[i] = src[i];
+        set(ids::b, &b, sizeof(uint16_t));
     }
 
-    uint32_t size_vUint8() const
+    bool has_c()
     {
-        return getSizeById(ids::vUint8) / sizeof(uint8_t);
+        return has(ids::c) != 0;
     }
-    bool has_vUint8() const
+    uint32_t size_c()
     {
-        return getSizeById(ids::vUint8) != 0;
+        return size(ids::c);
     }
-    void add_vUint8()
+    int32_t get_c()
     {
-        addDataById(ids::vUint8, sizeof(uint8_t));
+        int32_t dst;
+        _inner_::copybybytes(get(ids::c), &dst, sizeof(int32_t));
+        return dst;
     }
-    const uint8_t& get_vUint8()
+    void set_c(const int32_t& c)
     {
-        return *reinterpret_cast<uint8_t*>(getDataById(ids::vUint8));
-}
-    void set_vUint8(const uint8_t& vUint8)
-    {
-        *reinterpret_cast<uint8_t*>(getDataById(ids::vUint8)) = vUint8;
+        set(ids::c, &c, sizeof(int32_t));
     }
 
-    uint32_t size_vArray() const
+    bool has_d()
     {
-        return getSizeById(ids::vArray) / sizeof(int64_t);
+        return has(ids::d) != 0;
     }
-    bool has_vArray() const
+    uint32_t size_d()
     {
-        return getSizeById(ids::vArray) != 0;
+        return size(ids::d);
     }
-    void add_vArray(const uint32_t size)
+    uint64_t get_d()
     {
-        addDataById(ids::vArray, size * sizeof(int64_t));
+        uint64_t dst;
+        _inner_::copybybytes(get(ids::d), &dst, sizeof(uint64_t));
+        return dst;
     }
-    const int64_t* get_vArray()
+    void set_d(const uint64_t& d)
     {
-        return reinterpret_cast<int64_t*>(getDataById(ids::vArray));
-    }
-    const int64_t& get_vArray(const uint32_t index)
-    {
-        const int64_t* ptr = reinterpret_cast<int64_t*>(getDataById(ids::vArray));
-        if (!ptr)
-            throw std::logic_error("Nullptr");
-        return ptr[index];
-}
-    void set_vArray(const int64_t* vArray)
-    {
-        const uint32_t size = getSizeById(ids::vArray);
-        const uint8_t* src = reinterpret_cast<const uint8_t*>(vArray);
-        uint8_t* dst = reinterpret_cast<uint8_t*>(getDataById(ids::vArray));
-        for (uint32_t i = 0; i < size; i++)
-            dst[i] = src[i];
-    }
-    void set_vArray(const uint32_t index, const int64_t& element)
-    {
-        int64_t* ptr = reinterpret_cast<int64_t*>(getDataById(ids::vArray));
-        if (!ptr)
-            throw std::logic_error("Nullptr");
-        ptr[index] = element;
+        set(ids::d, &d, sizeof(uint64_t));
     }
 
-    bool from(const void* ptr)
+    bool has_e()
+    {
+        return has(ids::e) != 0;
+    }
+    uint32_t size_e()
+    {
+        return size(ids::e);
+    }
+    float get_e()
+    {
+        float dst;
+        _inner_::copybybytes(get(ids::e), &dst, sizeof(float));
+        return dst;
+    }
+    void set_e(const float& e)
+    {
+        set(ids::e, &e, sizeof(float));
+    }
+
+    bool has_f()
+    {
+        return has(ids::f) != 0;
+    }
+    uint32_t size_f()
+    {
+        return size(ids::f);
+    }
+    double get_f()
+    {
+        double dst;
+        _inner_::copybybytes(get(ids::f), &dst, sizeof(double));
+        return dst;
+    }
+    void set_f(const double& f)
+    {
+        set(ids::f, &f, sizeof(double));
+    }
+
+    void create(const uint32_t reserve = 0)
+    {
+        m_from = nullptr;
+        m_buffer = std::make_shared<std::vector<uint8_t>>();
+        m_buffer->reserve(reserve);
+        m_buffer->resize(sizeof(_inner_::header) + sizeof(Table));
+        _inner_::header *h = reinterpret_cast<_inner_::header*>(&m_buffer->data()[0]);
+        h->signature0  = 'i';
+        h->signature1  = 'b';
+        m_table = sizeof(_inner_::header);
+    }
+    bool from(uint8_t* ptr)
     {
         if (!ptr)
             return false;
         const _inner_::header* h = reinterpret_cast<const _inner_::header*>(ptr);
         if (h->signature0 != 'i' ||
-            h->signature1 != 'b' ||
-            h->version != 1)
+            h->signature1 != 'b')
             return false;
-        if (!m_buffer.empty())
-            m_buffer.clear();
-        m_from = reinterpret_cast<uint8_t*>(const_cast<void*>(ptr));
+        if (!m_buffer->empty())
+            m_buffer->clear();
+        m_from = ptr;
         return true;
     }
-    void* to()
+    uint8_t* to()
     {
         if (m_from)
-            return nullptr;
+            return m_from;
         else
-            return m_buffer.data();
-    }
-    std::unique_ptr<void*> to(const uint32_t compression)
-    {
-        switch (compression)
-        {
-        case INB_NO_COMPRESSION:
-            return nullptr;
-        case INB_TABLE_COMPRESSION:
-            return nullptr;
-        case INB_FULL_COMPRESSION:
-            return nullptr;
-        default:
-            break;
-        }
-        return nullptr;
+            return m_buffer->data();
     }
     uint32_t size() const
     {
         if (m_from)
             return 0;
         else
-            return static_cast<uint32_t>(m_buffer.size());
+            return static_cast<uint32_t>(m_buffer->size());
     }
 
-private:
     #pragma pack(push, 1)
-    struct staticData
+    struct Table
     {
-        uint32_t vUint32;
+        uint32_t __a = 0;
+        uint32_t __b = 0;
+        uint32_t __c = 0;
+        uint32_t __d = 0;
+        uint32_t __e = 0;
+        uint32_t __f = 0;
     };
     #pragma pack(pop)
 
-    uint8_t* m_from = nullptr;
-    std::vector<uint8_t> m_buffer;
-    const uint16_t m_tableSize = 4;
-};
-
-class Vec2f
-{
-public:
-    void create(const uint32_t reserve = 0)
+    Table* getTable()
     {
-        m_from = nullptr;
-        m_buffer.reserve(reserve);
-        m_buffer.resize(sizeof(_inner_::header) + sizeof(m_tableSize) * sizeof(uint32_t) + sizeof(staticData));
-        _inner_::header *h = reinterpret_cast<_inner_::header*>(&m_buffer[0]);
-        h->signature0  = 'i';
-        h->signature1  = 'b';
-        h->version     = 1;
-        h->compression = INB_NO_COMPRESSION;
-        h->tableSize   = m_tableSize;
-        if (m_tableSize)
-        {
-           uint32_t* table = reinterpret_cast<uint32_t*>(
-               &m_buffer[0] + sizeof(_inner_::header)+sizeof(staticData));
-           for (uint32_t i = 0; i < m_tableSize; i++)
-               table[i] = 0;
-        }
+        return reinterpret_cast<Table*>(&to()[m_table]);
     }
-
-    uint32_t size_x() const
-    {
-        return sizeof(float);
-    }
-    bool has_x() const
-    {
-        return true;
-    }
-    void add_x()
-    {
-    }
-    const float& get_x()
-    {
-        const staticData* data = m_from
-            ? reinterpret_cast<const staticData*>(&m_from[sizeof(_inner_::header)])
-            : reinterpret_cast<const staticData*>(&m_buffer[sizeof(_inner_::header)]);
-        return data->x;
-}
-    void set_x(const float& x)
-    {
-        staticData* data = reinterpret_cast<staticData*>(&m_buffer[sizeof(_inner_::header)]);
-        data->x = x;
-    }
-
-    uint32_t size_y() const
-    {
-        return sizeof(float);
-    }
-    bool has_y() const
-    {
-        return true;
-    }
-    void add_y()
-    {
-    }
-    const float& get_y()
-    {
-        const staticData* data = m_from
-            ? reinterpret_cast<const staticData*>(&m_from[sizeof(_inner_::header)])
-            : reinterpret_cast<const staticData*>(&m_buffer[sizeof(_inner_::header)]);
-        return data->y;
-}
-    void set_y(const float& y)
-    {
-        staticData* data = reinterpret_cast<staticData*>(&m_buffer[sizeof(_inner_::header)]);
-        data->y = y;
-    }
-
-    bool from(const void* ptr)
-    {
-        if (!ptr)
-            return false;
-        const _inner_::header* h = reinterpret_cast<const _inner_::header*>(ptr);
-        if (h->signature0 != 'i' ||
-            h->signature1 != 'b' ||
-            h->version != 1)
-            return false;
-        if (!m_buffer.empty())
-            m_buffer.clear();
-        m_from = reinterpret_cast<uint8_t*>(const_cast<void*>(ptr));
-        return true;
-    }
-    void* to()
-    {
-        if (m_from)
-            return nullptr;
-        else
-            return m_buffer.data();
-    }
-    std::unique_ptr<void*> to(const uint32_t compression)
-    {
-        switch (compression)
-        {
-        case INB_NO_COMPRESSION:
-            return nullptr;
-        case INB_TABLE_COMPRESSION:
-            return nullptr;
-        case INB_FULL_COMPRESSION:
-            return nullptr;
-        default:
-            break;
-        }
-        return nullptr;
-    }
-    uint32_t size() const
+    uint32_t insert(const uint32_t size)
     {
         if (m_from)
             return 0;
         else
-            return static_cast<uint32_t>(m_buffer.size());
+        {
+            const uint32_t offset = static_cast<uint32_t>(m_buffer->size());
+            m_buffer->resize(m_buffer->size() + size);
+            return offset;
+        }
+    }
+    uint32_t& address(const ids& id, Table* table)
+    {
+        switch (id)
+        {
+        case ids::a: return table->__a;
+        case ids::b: return table->__b;
+        case ids::c: return table->__c;
+        case ids::d: return table->__d;
+        case ids::e: return table->__e;
+        case ids::f: return table->__f;
+        default: return _inner_::zero;
+        }
     }
 
-private:
-    #pragma pack(push, 1)
-    struct staticData
+    struct
     {
-        float x;
-        float y;
-    };
-    #pragma pack(pop)
+    } custom;
 
     uint8_t* m_from = nullptr;
-    std::vector<uint8_t> m_buffer;
-    const uint16_t m_tableSize = 0;
+    std::shared_ptr<std::vector<uint8_t>> m_buffer;
+    uint32_t m_table = 0;
 };
 
-class Vec3i
+class Vec3f
 {
 public:
-    void create(const uint32_t reserve = 0)
+    Vec3f(const uint32_t reserve = 0)
     {
-        m_from = nullptr;
-        m_buffer.reserve(reserve);
-        m_buffer.resize(sizeof(_inner_::header) + sizeof(m_tableSize) * sizeof(uint32_t));
-        _inner_::header *h = reinterpret_cast<_inner_::header*>(&m_buffer[0]);
-        h->signature0  = 'i';
-        h->signature1  = 'b';
-        h->version     = 1;
-        h->compression = INB_NO_COMPRESSION;
-        h->tableSize   = m_tableSize;
-        if (m_tableSize)
-        {
-           uint32_t* table = reinterpret_cast<uint32_t*>(
-               &m_buffer[0] + sizeof(_inner_::header));
-           for (uint32_t i = 0; i < m_tableSize; i++)
-               table[i] = 0;
-        }
+        create(reserve);
+    }
+    Vec3f(uint8_t *from_)
+    {
+        this->from(from_);
     }
 
     enum class ids
@@ -674,7 +713,7 @@ public:
         z,
         _size_
     };
-    const char* getIdString(const ids& id) const
+    static const char* id_str(const ids& id)
     {
         switch (id)
         {
@@ -684,156 +723,642 @@ public:
         default: return "_?unknown_id?_";
         }
     }
-    void* getDataById(const ids& id)
+
+    enum class types
     {
-        uint8_t* ptr = m_from ? m_from : m_buffer.data();
-        const uint32_t* table = reinterpret_cast<const uint32_t*>(
-                    &ptr[0] + sizeof(_inner_::header));
-        const uint32_t offset = table[static_cast<uint32_t>(id)];
-        if (offset == 0)
-            throw std::logic_error("There is no field '"
-                + std::string(getIdString(id)) + "' in the packet");
-        return reinterpret_cast<void*>(&ptr[0] + offset + sizeof(uint32_t));
+        int8,
+        uint8,
+        int16,
+        uint16,
+        int32,
+        uint32,
+        int64,
+        uint64,
+        float32,
+        float64,
+        bytes,
+        unknown
+};
+
+    uint32_t has(const ids& id)
+    {
+        return address(id, getTable());
     }
-    uint32_t getSizeById(const ids& id) const
+    uint8_t* get(const ids& id)
     {
-        const uint8_t* ptr = m_from ? m_from : m_buffer.data();
-        const uint32_t* table = reinterpret_cast<const uint32_t*>(
-                    &ptr[0] + sizeof(_inner_::header));
-        const uint32_t offset = table[static_cast<uint32_t>(id)];
-        if (offset == 0)
-            return 0;
-        else
-            return *reinterpret_cast<const uint32_t*>(&ptr[0] + offset);
+        Table* table = getTable();
+        uint8_t* ptr = to();
+        switch (id)
+        {
+        case ids::x:
+            return reinterpret_cast<uint8_t*>(&table->x);
+        case ids::y:
+            return reinterpret_cast<uint8_t*>(&table->y);
+        case ids::z:
+            return reinterpret_cast<uint8_t*>(&table->z);
+        default:
+            return nullptr;
+        }
     }
-    void addDataById(const ids& id, const uint32_t size)
+    void set(const ids& id, const void* data, const uint32_t size)
     {
-        if (m_from)
-            throw std::logic_error("We cannot edit received packets");
-        uint32_t* table = reinterpret_cast<uint32_t*>(
-            &m_buffer[0] + sizeof(_inner_::header));
-        const uint32_t offset = table[static_cast<uint32_t>(id)];
-        if (offset != 0)
-            return;
-        const uint32_t newOffset = static_cast<uint32_t>(m_buffer.size());
-        m_buffer.resize(m_buffer.size() + sizeof(uint32_t) + size);
-        table = reinterpret_cast<uint32_t*>(
-            &m_buffer[0] + sizeof(_inner_::header));
-        table[static_cast<uint32_t>(id)] = newOffset;
-        *reinterpret_cast<uint32_t*>(&m_buffer[0] + newOffset) = size;
+        switch (id)
+        {
+        case ids::x:
+            if (data)
+                _inner_::copybybytes(data, &getTable()->x, size);
+            break;
+        case ids::y:
+            if (data)
+                _inner_::copybybytes(data, &getTable()->y, size);
+            break;
+        case ids::z:
+            if (data)
+                _inner_::copybybytes(data, &getTable()->z, size);
+            break;
+        default:
+            break;
+        }
+    }
+    types type(const ids& id)
+    {
+        switch (id)
+        {
+        case ids::x: return types::float32;
+        case ids::y: return types::float32;
+        case ids::z: return types::float32;
+        default: return types::unknown;
+        }
+    }
+    uint32_t size(const ids& id)
+    {
+        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];
+        Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);
+        const uint32_t offset = address(id, table);
+        return *reinterpret_cast<uint32_t*>(&ptr[offset]);
     }
 
-    uint32_t size_x() const
+    bool has_x()
     {
-        return getSizeById(ids::x) / sizeof(int32_t);
+        return true;
     }
-    bool has_x() const
+    uint32_t size_x()
     {
-        return getSizeById(ids::x) != 0;
+        return sizeof(float);
     }
-    void add_x()
+    float get_x()
     {
-        addDataById(ids::x, sizeof(int32_t));
+        float dst;
+        _inner_::copybybytes(get(ids::x), &dst, sizeof(float));
+        return dst;
     }
-    const int32_t& get_x()
+    void set_x(const float& x)
     {
-        return *reinterpret_cast<int32_t*>(getDataById(ids::x));
-}
-    void set_x(const int32_t& x)
-    {
-        *reinterpret_cast<int32_t*>(getDataById(ids::x)) = x;
+        _inner_::copybybytes(&x, get(ids::x), sizeof(float));
     }
 
-    uint32_t size_y() const
+    bool has_y()
     {
-        return getSizeById(ids::y) / sizeof(int32_t);
+        return true;
     }
-    bool has_y() const
+    uint32_t size_y()
     {
-        return getSizeById(ids::y) != 0;
+        return sizeof(float);
     }
-    void add_y()
+    float get_y()
     {
-        addDataById(ids::y, sizeof(int32_t));
+        float dst;
+        _inner_::copybybytes(get(ids::y), &dst, sizeof(float));
+        return dst;
     }
-    const int32_t& get_y()
+    void set_y(const float& y)
     {
-        return *reinterpret_cast<int32_t*>(getDataById(ids::y));
-}
-    void set_y(const int32_t& y)
-    {
-        *reinterpret_cast<int32_t*>(getDataById(ids::y)) = y;
+        _inner_::copybybytes(&y, get(ids::y), sizeof(float));
     }
 
-    uint32_t size_z() const
+    bool has_z()
     {
-        return getSizeById(ids::z) / sizeof(int32_t);
+        return true;
     }
-    bool has_z() const
+    uint32_t size_z()
     {
-        return getSizeById(ids::z) != 0;
+        return sizeof(float);
     }
-    void add_z()
+    float get_z()
     {
-        addDataById(ids::z, sizeof(int32_t));
+        float dst;
+        _inner_::copybybytes(get(ids::z), &dst, sizeof(float));
+        return dst;
     }
-    const int32_t& get_z()
+    void set_z(const float& z)
     {
-        return *reinterpret_cast<int32_t*>(getDataById(ids::z));
-}
-    void set_z(const int32_t& z)
-    {
-        *reinterpret_cast<int32_t*>(getDataById(ids::z)) = z;
+        _inner_::copybybytes(&z, get(ids::z), sizeof(float));
     }
 
-    bool from(const void* ptr)
+    void create(const uint32_t reserve = 0)
+    {
+        m_from = nullptr;
+        m_buffer = std::make_shared<std::vector<uint8_t>>();
+        m_buffer->reserve(reserve);
+        m_buffer->resize(sizeof(_inner_::header) + sizeof(Table));
+        _inner_::header *h = reinterpret_cast<_inner_::header*>(&m_buffer->data()[0]);
+        h->signature0  = 'i';
+        h->signature1  = 'b';
+        m_table = sizeof(_inner_::header);
+    }
+    bool from(uint8_t* ptr)
     {
         if (!ptr)
             return false;
         const _inner_::header* h = reinterpret_cast<const _inner_::header*>(ptr);
         if (h->signature0 != 'i' ||
-            h->signature1 != 'b' ||
-            h->version != 1)
+            h->signature1 != 'b')
             return false;
-        if (!m_buffer.empty())
-            m_buffer.clear();
-        m_from = reinterpret_cast<uint8_t*>(const_cast<void*>(ptr));
+        if (!m_buffer->empty())
+            m_buffer->clear();
+        m_from = ptr;
         return true;
     }
-    void* to()
+    uint8_t* to()
     {
         if (m_from)
-            return nullptr;
+            return m_from;
         else
-            return m_buffer.data();
-    }
-    std::unique_ptr<void*> to(const uint32_t compression)
-    {
-        switch (compression)
-        {
-        case INB_NO_COMPRESSION:
-            return nullptr;
-        case INB_TABLE_COMPRESSION:
-            return nullptr;
-        case INB_FULL_COMPRESSION:
-            return nullptr;
-        default:
-            break;
-        }
-        return nullptr;
+            return m_buffer->data();
     }
     uint32_t size() const
     {
         if (m_from)
             return 0;
         else
-            return static_cast<uint32_t>(m_buffer.size());
+            return static_cast<uint32_t>(m_buffer->size());
     }
 
-private:
+    #pragma pack(push, 1)
+    struct Table
+    {
+        float x;
+        float y;
+        float z;
+    };
+    #pragma pack(pop)
+
+    Table* getTable()
+    {
+        return reinterpret_cast<Table*>(&to()[m_table]);
+    }
+    uint32_t insert(const uint32_t size)
+    {
+        if (m_from)
+            return 0;
+        else
+        {
+            const uint32_t offset = static_cast<uint32_t>(m_buffer->size());
+            m_buffer->resize(m_buffer->size() + size);
+            return offset;
+        }
+    }
+    uint32_t& address(const ids& id, Table* table)
+    {
+        switch (id)
+        {
+        default: return _inner_::zero;
+        }
+    }
+
+    struct
+    {
+    } custom;
+
     uint8_t* m_from = nullptr;
-    std::vector<uint8_t> m_buffer;
-    const uint16_t m_tableSize = 3;
+    std::shared_ptr<std::vector<uint8_t>> m_buffer;
+    uint32_t m_table = 0;
+};
+
+class Arrays
+{
+public:
+    Arrays(const uint32_t reserve = 0)
+    {
+        create(reserve);
+    }
+    Arrays(uint8_t *from_)
+    {
+        this->from(from_);
+    }
+
+    enum class ids
+    {
+        b,
+        m,
+        v,
+        _size_
+    };
+    static const char* id_str(const ids& id)
+    {
+        switch (id)
+        {
+        case ids::b: return "b"; 
+        case ids::m: return "m"; 
+        case ids::v: return "v"; 
+        default: return "_?unknown_id?_";
+        }
+    }
+
+    enum class types
+    {
+        int8,
+        uint8,
+        int16,
+        uint16,
+        int32,
+        uint32,
+        int64,
+        uint64,
+        float32,
+        float64,
+        bytes,
+        Vec3f,
+        unknown
+};
+
+    uint32_t has(const ids& id)
+    {
+        return address(id, getTable());
+    }
+    uint8_t* get(const ids& id)
+    {
+        Table* table = getTable();
+        uint8_t* ptr = to();
+        switch (id)
+        {
+        case ids::b:
+        case ids::m:
+        case ids::v:
+            return &ptr[address(id, table) + sizeof(uint32_t)];
+        default:
+            return nullptr;
+        }
+    }
+    void set(const ids& id, const void* data, const uint32_t size)
+    {
+        switch (id)
+        {
+        default:
+        {
+            uint32_t offset = has(id);
+            if (offset == 0)
+            {
+                offset = insert(size + sizeof(uint32_t));
+                if (!offset)
+                    return;
+                *reinterpret_cast<uint32_t*>(&m_buffer->data()[offset]) = size;
+                address(id, getTable()) = offset;
+            }
+            if (data)
+                _inner_::copybybytes(data, &m_buffer->data()[offset + sizeof(uint32_t)], size);
+            break;
+        }
+        }
+    }
+    types type(const ids& id)
+    {
+        switch (id)
+        {
+        case ids::b: return types::bytes;
+        case ids::m: return types::int16;
+        case ids::v: return types::Vec3f;
+        default: return types::unknown;
+        }
+    }
+    uint32_t size(const ids& id)
+    {
+        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];
+        Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);
+        const uint32_t offset = address(id, table);
+        return *reinterpret_cast<uint32_t*>(&ptr[offset]);
+    }
+
+    bool has_b()
+    {
+        return has(ids::b) != 0;
+    }
+    uint32_t size_b()
+    {
+        return size(ids::b);
+    }
+    const uint8_t* get_b()
+    {
+        return reinterpret_cast<const uint8_t*>(get(ids::b));
+    }
+    void set_b(const void* data, const uint32_t numberOfBytes)
+    {
+        set(ids::b, data, numberOfBytes);
+    }
+
+    bool has_m()
+    {
+        return has(ids::m) != 0;
+    }
+    uint32_t size_m()
+    {
+        return size(ids::m) / sizeof(int16_t);
+    }
+    const int16_t* get_m()
+    {
+        return reinterpret_cast<int16_t*>(get(ids::m));
+    }
+    const int16_t& get_m(const uint32_t index)
+    {
+        const int16_t* ptr = reinterpret_cast<int16_t*>(get(ids::m));
+        if (!ptr)
+            throw std::logic_error("Nullptr");
+        return ptr[index];
+    }
+    void set_m(const int16_t* data, const uint32_t numberOfElements)
+    {
+        set(ids::m, data, numberOfElements * sizeof(int16_t));
+    }
+    void set_m(const uint32_t index, const int16_t& element)
+    {
+        int16_t* ptr = reinterpret_cast<int16_t*>(get(ids::m));
+        if (!ptr)
+            throw std::logic_error("Nullptr");
+        _inner_::copybybytes(&element, &ptr[index], sizeof(int16_t));
+    }
+
+    bool has_v()
+    {
+        return has(ids::v) != 0;
+    }
+    uint32_t size_v()
+    {
+        return size(ids::v) / sizeof(Vec3f::Table);
+    }
+    Vec3f& get_v(const uint32_t index)
+    {
+        if (index >= custom.v.size())
+            throw std::logic_error("Nullref");
+        return custom.v[index];
+    }
+    void set_v(const uint32_t numberOfElements)
+    {
+        if (!custom.v.empty())
+            throw std::logic_error("Already setted");
+        set(ids::v, nullptr, numberOfElements * sizeof(Vec3f::Table));
+        custom.v.resize(numberOfElements);
+        Table *table = getTable();
+        for (uint32_t i = 0; i < numberOfElements; ++i)
+        {
+            custom.v[i].m_table = address(ids::v, table) + sizeof(Vec3f::Table) * i + sizeof(uint32_t);
+            custom.v[i].m_buffer = m_buffer;
+        }
+    }
+
+    void create(const uint32_t reserve = 0)
+    {
+        m_from = nullptr;
+        m_buffer = std::make_shared<std::vector<uint8_t>>();
+        m_buffer->reserve(reserve);
+        m_buffer->resize(sizeof(_inner_::header) + sizeof(Table));
+        _inner_::header *h = reinterpret_cast<_inner_::header*>(&m_buffer->data()[0]);
+        h->signature0  = 'i';
+        h->signature1  = 'b';
+        m_table = sizeof(_inner_::header);
+    }
+    bool from(uint8_t* ptr)
+    {
+        if (!ptr)
+            return false;
+        const _inner_::header* h = reinterpret_cast<const _inner_::header*>(ptr);
+        if (h->signature0 != 'i' ||
+            h->signature1 != 'b')
+            return false;
+        if (!m_buffer->empty())
+            m_buffer->clear();
+        m_from = ptr;
+        if (getTable()->__v)
+        {
+            const uint32_t number = size(ids::v) / sizeof(Vec3f::Table);
+            custom.v.reserve(number);
+            for (uint32_t i = 0; i < number; ++i)
+            {
+                custom.v.emplace_back();
+                custom.v.back().from(ptr);
+                auto table = reinterpret_cast<Vec3f::Table*>(ptr + getTable()->__v + sizeof(uint32_t) + sizeof(Vec3f::Table) * i);
+                custom.v.back().m_table = reinterpret_cast<uint8_t*>(table) - ptr;
+            }
+        }
+        return true;
+    }
+    uint8_t* to()
+    {
+        if (m_from)
+            return m_from;
+        else
+            return m_buffer->data();
+    }
+    uint32_t size() const
+    {
+        if (m_from)
+            return 0;
+        else
+            return static_cast<uint32_t>(m_buffer->size());
+    }
+
+    #pragma pack(push, 1)
+    struct Table
+    {
+        uint32_t __b = 0;
+        uint32_t __m = 0;
+        uint32_t __v = 0;
+    };
+    #pragma pack(pop)
+
+    Table* getTable()
+    {
+        return reinterpret_cast<Table*>(&to()[m_table]);
+    }
+    uint32_t insert(const uint32_t size)
+    {
+        if (m_from)
+            return 0;
+        else
+        {
+            const uint32_t offset = static_cast<uint32_t>(m_buffer->size());
+            m_buffer->resize(m_buffer->size() + size);
+            return offset;
+        }
+    }
+    uint32_t& address(const ids& id, Table* table)
+    {
+        switch (id)
+        {
+        case ids::b: return table->__b;
+        case ids::m: return table->__m;
+        case ids::v: return table->__v;
+        default: return _inner_::zero;
+        }
+    }
+
+    struct
+    {
+        std::vector<Vec3f> v;
+    } custom;
+
+    uint8_t* m_from = nullptr;
+    std::shared_ptr<std::vector<uint8_t>> m_buffer;
+    uint32_t m_table = 0;
+};
+
+class Complex
+{
+public:
+    Complex(const uint32_t reserve = 0)
+    {
+        create(reserve);
+    }
+    Complex(uint8_t *from_)
+    {
+        this->from(from_);
+    }
+
+    enum class ids
+    {
+        _size_
+    };
+    static const char* id_str(const ids& id)
+    {
+        switch (id)
+        {
+        default: return "_?unknown_id?_";
+        }
+    }
+
+    enum class types
+    {
+        int8,
+        uint8,
+        int16,
+        uint16,
+        int32,
+        uint32,
+        int64,
+        uint64,
+        float32,
+        float64,
+        bytes,
+        unknown
+};
+
+    uint32_t has(const ids& id)
+    {
+        return address(id, getTable());
+    }
+    uint8_t* get(const ids& id)
+    {
+        Table* table = getTable();
+        uint8_t* ptr = to();
+        switch (id)
+        {
+        default:
+            return nullptr;
+        }
+    }
+    void set(const ids& id, const void* data, const uint32_t size)
+    {
+        switch (id)
+        {
+        default:
+            break;
+        }
+    }
+    types type(const ids& id)
+    {
+        switch (id)
+        {
+        default: return types::unknown;
+        }
+    }
+    uint32_t size(const ids& id)
+    {
+        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];
+        Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);
+        const uint32_t offset = address(id, table);
+        return *reinterpret_cast<uint32_t*>(&ptr[offset]);
+    }
+
+    void create(const uint32_t reserve = 0)
+    {
+        m_from = nullptr;
+        m_buffer = std::make_shared<std::vector<uint8_t>>();
+        m_buffer->reserve(reserve);
+        m_buffer->resize(sizeof(_inner_::header) + sizeof(Table));
+        _inner_::header *h = reinterpret_cast<_inner_::header*>(&m_buffer->data()[0]);
+        h->signature0  = 'i';
+        h->signature1  = 'b';
+        m_table = sizeof(_inner_::header);
+    }
+    bool from(uint8_t* ptr)
+    {
+        if (!ptr)
+            return false;
+        const _inner_::header* h = reinterpret_cast<const _inner_::header*>(ptr);
+        if (h->signature0 != 'i' ||
+            h->signature1 != 'b')
+            return false;
+        if (!m_buffer->empty())
+            m_buffer->clear();
+        m_from = ptr;
+        return true;
+    }
+    uint8_t* to()
+    {
+        if (m_from)
+            return m_from;
+        else
+            return m_buffer->data();
+    }
+    uint32_t size() const
+    {
+        if (m_from)
+            return 0;
+        else
+            return static_cast<uint32_t>(m_buffer->size());
+    }
+
+    #pragma pack(push, 1)
+    struct Table
+    {
+    };
+    #pragma pack(pop)
+
+    Table* getTable()
+    {
+        return reinterpret_cast<Table*>(&to()[m_table]);
+    }
+    uint32_t insert(const uint32_t size)
+    {
+        if (m_from)
+            return 0;
+        else
+        {
+            const uint32_t offset = static_cast<uint32_t>(m_buffer->size());
+            m_buffer->resize(m_buffer->size() + size);
+            return offset;
+        }
+    }
+    uint32_t& address(const ids& id, Table* table)
+    {
+        switch (id)
+        {
+        default: return _inner_::zero;
+        }
+    }
+
+    uint8_t* m_from = nullptr;
+    std::shared_ptr<std::vector<uint8_t>> m_buffer;
+    uint32_t m_table = 0;
 };
 
 }

@@ -8,8 +8,9 @@
 #include <sstream>
 #include <vector>
 #include <map>
-#include <list>
+#include <deque>
 #include <cctype>
+#include <algorithm>
 
 #ifdef _WIN32
 #   include <Windows.h>
