@@ -292,6 +292,7 @@ void INBCompiler::parseStruct(tokens_it &it)
     
     optionalCount = 0;
     bool isExpectType = false;
+    bool isExpectOptional = false;
     while (*it != tokenCloseScope)
     {
         if (*it == tokenArray)
@@ -345,6 +346,18 @@ void INBCompiler::parseStruct(tokens_it &it)
                     optionalCount++;
                 fieldsList.back().isOptional = true;
                 fieldsList.back().isBuiltIn = false;
+                isExpectOptional = true;
+
+                auto fs = std::find_if(m_structs.begin(), m_structs.end(),
+                    [&](StructDescr &sd) { return sd.name == fieldsList.back().type; });
+                if (fs == m_structs.end())
+                {
+                    std::cout << clr::red << "Wrong structs order, must be (first)'"
+                              << fieldsList.back().type << "'+(second)'"
+                              << structName << "'" << clr::default_ << std::endl;
+                    exit(0);
+                }
+                fs->friends.insert(structName);
             }
             if (!next(it))
                 return;
@@ -352,14 +365,38 @@ void INBCompiler::parseStruct(tokens_it &it)
         }
         else
         {
+            if (isExpectOptional)
+            {
+                isExpectOptional = false;
+                if (!fieldsList.back().isArray)
+                {
+                    std::cout << clr::red << "Custom types ("
+                              << fieldsList.back().name << ":"
+                              << fieldsList.back().type
+                              << ") should be specified as optional "
+                              << clr::default_ << std::endl;
+                    exit(0);
+                }
+            }
             fieldsList.emplace_back();
             fieldsList.back().name = std::move(*it);
             if (!next(it))
                 return;
             isExpectType = true;
         }
-        //if (!next(it))
-        //    return;
+    }
+    if (isExpectOptional)
+    {
+        isExpectOptional = false;
+        if (!fieldsList.back().isArray && !fieldsList.back().isOptional)
+        {
+            std::cout << clr::red << "Custom types ("
+                      << fieldsList.back().name << ":"
+                      << fieldsList.back().type
+                      << ") should be specified as optional "
+                      << clr::default_ << std::endl;
+            exit(0);
+        }
     }
     next(it);
     if (m_detailed)

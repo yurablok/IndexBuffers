@@ -24,6 +24,7 @@ namespace _inner_
     static uint32_t zero = 0;
 }
 
+static const uint32_t TestConst = 43344;
 enum class Color
 {
     RED = 0,
@@ -162,7 +163,7 @@ public:
     }
     uint32_t size(const ids& id)
     {
-        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];
+        uint8_t* ptr = m_from ? const_cast<uint8_t*>(m_from) : &m_buffer->data()[0];
         Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);
         const uint32_t offset = address(id, table);
         return *reinterpret_cast<uint32_t*>(&ptr[offset]);
@@ -293,7 +294,7 @@ public:
         h->signature1  = 'b';
         m_table = sizeof(_inner_::header);
     }
-    bool from(uint8_t* ptr)
+    bool from(const uint8_t* ptr)
     {
         if (!ptr)
             return false;
@@ -309,7 +310,7 @@ public:
     uint8_t* to()
     {
         if (m_from)
-            return m_from;
+            return const_cast<uint8_t*>(m_from);
         else
             return m_buffer->data();
     }
@@ -321,6 +322,7 @@ public:
             return static_cast<uint32_t>(m_buffer->size());
     }
 
+private:
     #pragma pack(push, 1)
     struct Table
     {
@@ -356,7 +358,7 @@ public:
         }
     }
 
-    uint8_t* m_from = nullptr;
+    const uint8_t* m_from = nullptr;
     std::shared_ptr<std::vector<uint8_t>> m_buffer;
     uint32_t m_table = 0;
 };
@@ -465,7 +467,7 @@ public:
     }
     uint32_t size(const ids& id)
     {
-        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];
+        uint8_t* ptr = m_from ? const_cast<uint8_t*>(m_from) : &m_buffer->data()[0];
         Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);
         const uint32_t offset = address(id, table);
         return *reinterpret_cast<uint32_t*>(&ptr[offset]);
@@ -596,7 +598,7 @@ public:
         h->signature1  = 'b';
         m_table = sizeof(_inner_::header);
     }
-    bool from(uint8_t* ptr)
+    bool from(const uint8_t* ptr)
     {
         if (!ptr)
             return false;
@@ -612,7 +614,7 @@ public:
     uint8_t* to()
     {
         if (m_from)
-            return m_from;
+            return const_cast<uint8_t*>(m_from);
         else
             return m_buffer->data();
     }
@@ -624,6 +626,7 @@ public:
             return static_cast<uint32_t>(m_buffer->size());
     }
 
+private:
     #pragma pack(push, 1)
     struct Table
     {
@@ -665,7 +668,7 @@ public:
         }
     }
 
-    uint8_t* m_from = nullptr;
+    const uint8_t* m_from = nullptr;
     std::shared_ptr<std::vector<uint8_t>> m_buffer;
     uint32_t m_table = 0;
 };
@@ -763,7 +766,7 @@ public:
     }
     uint32_t size(const ids& id)
     {
-        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];
+        uint8_t* ptr = m_from ? const_cast<uint8_t*>(m_from) : &m_buffer->data()[0];
         Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);
         const uint32_t offset = address(id, table);
         return *reinterpret_cast<uint32_t*>(&ptr[offset]);
@@ -837,7 +840,7 @@ public:
         h->signature1  = 'b';
         m_table = sizeof(_inner_::header);
     }
-    bool from(uint8_t* ptr)
+    bool from(const uint8_t* ptr)
     {
         if (!ptr)
             return false;
@@ -853,7 +856,7 @@ public:
     uint8_t* to()
     {
         if (m_from)
-            return m_from;
+            return const_cast<uint8_t*>(m_from);
         else
             return m_buffer->data();
     }
@@ -865,6 +868,8 @@ public:
             return static_cast<uint32_t>(m_buffer->size());
     }
 
+    friend class Arrays;
+private:
     #pragma pack(push, 1)
     struct Table
     {
@@ -897,7 +902,7 @@ public:
         }
     }
 
-    uint8_t* m_from = nullptr;
+    const uint8_t* m_from = nullptr;
     std::shared_ptr<std::vector<uint8_t>> m_buffer;
     uint32_t m_table = 0;
 };
@@ -995,7 +1000,7 @@ public:
     }
     uint32_t size(const ids& id)
     {
-        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];
+        uint8_t* ptr = m_from ? const_cast<uint8_t*>(m_from) : &m_buffer->data()[0];
         Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);
         const uint32_t offset = address(id, table);
         return *reinterpret_cast<uint32_t*>(&ptr[offset]);
@@ -1088,7 +1093,7 @@ public:
         h->signature1  = 'b';
         m_table = sizeof(_inner_::header);
     }
-    bool from(uint8_t* ptr)
+    bool from(const uint8_t* ptr)
     {
         if (!ptr)
             return false;
@@ -1107,8 +1112,8 @@ public:
             {
                 custom.v.emplace_back();
                 custom.v.back().from(ptr);
-                auto table = reinterpret_cast<Vec3f::Table*>(ptr + getTable()->__v + sizeof(uint32_t) + sizeof(Vec3f::Table) * i);
-                custom.v.back().m_table = reinterpret_cast<uint8_t*>(table) - ptr;
+                auto table = reinterpret_cast<const Vec3f::Table*>(ptr + getTable()->__v + sizeof(uint32_t) + sizeof(Vec3f::Table) * i);
+                custom.v.back().m_table = reinterpret_cast<const uint8_t*>(table) - ptr;
             }
         }
         return true;
@@ -1116,7 +1121,7 @@ public:
     uint8_t* to()
     {
         if (m_from)
-            return m_from;
+            return const_cast<uint8_t*>(m_from);
         else
             return m_buffer->data();
     }
@@ -1128,6 +1133,7 @@ public:
             return static_cast<uint32_t>(m_buffer->size());
     }
 
+private:
     #pragma pack(push, 1)
     struct Table
     {
@@ -1168,7 +1174,7 @@ public:
         std::vector<Vec3f> v;
     } custom;
 
-    uint8_t* m_from = nullptr;
+    const uint8_t* m_from = nullptr;
     std::shared_ptr<std::vector<uint8_t>> m_buffer;
     uint32_t m_table = 0;
 };
@@ -1239,7 +1245,7 @@ public:
     }
     uint32_t size(const ids& id)
     {
-        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];
+        uint8_t* ptr = m_from ? const_cast<uint8_t*>(m_from) : &m_buffer->data()[0];
         Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);
         const uint32_t offset = address(id, table);
         return *reinterpret_cast<uint32_t*>(&ptr[offset]);
@@ -1256,7 +1262,7 @@ public:
         h->signature1  = 'b';
         m_table = sizeof(_inner_::header);
     }
-    bool from(uint8_t* ptr)
+    bool from(const uint8_t* ptr)
     {
         if (!ptr)
             return false;
@@ -1272,7 +1278,7 @@ public:
     uint8_t* to()
     {
         if (m_from)
-            return m_from;
+            return const_cast<uint8_t*>(m_from);
         else
             return m_buffer->data();
     }
@@ -1284,6 +1290,7 @@ public:
             return static_cast<uint32_t>(m_buffer->size());
     }
 
+private:
     #pragma pack(push, 1)
     struct Table
     {
@@ -1313,7 +1320,7 @@ public:
         }
     }
 
-    uint8_t* m_from = nullptr;
+    const uint8_t* m_from = nullptr;
     std::shared_ptr<std::vector<uint8_t>> m_buffer;
     uint32_t m_table = 0;
 };

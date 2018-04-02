@@ -280,7 +280,7 @@ void INBCompiler::genCPP(const std::string &out)
         file << "    }" << std::endl;
         file << "    uint32_t size(const ids& id)" << std::endl;
         file << "    {" << std::endl;
-        file << "        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];" << std::endl;
+        file << "        uint8_t* ptr = m_from ? const_cast<uint8_t*>(m_from) : &m_buffer->data()[0];" << std::endl;
         file << "        Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);" << std::endl;
         file << "        const uint32_t offset = address(id, table);" << std::endl;
         file << "        return *reinterpret_cast<uint32_t*>(&ptr[offset]);" << std::endl;
@@ -505,7 +505,7 @@ void INBCompiler::genCPP(const std::string &out)
         file << "        h->signature1  = 'b';" << std::endl;
         file << "        m_table = sizeof(_inner_::header);" << std::endl;
         file << "    }" << std::endl;
-        file << "    bool from(uint8_t* ptr)" << std::endl;
+        file << "    bool from(const uint8_t* ptr)" << std::endl;
         file << "    {" << std::endl;
         file << "        if (!ptr)" << std::endl;
         file << "            return false;" << std::endl;
@@ -533,8 +533,8 @@ void INBCompiler::genCPP(const std::string &out)
             file << "            {" << std::endl;
             file << "                custom." << name << ".emplace_back();" << std::endl;
             file << "                custom." << name << ".back().from(ptr);" << std::endl;
-            file << "                auto table = reinterpret_cast<" << type << "::Table*>(ptr + getTable()->__" << name << " + sizeof(uint32_t) + sizeof(" << type << "::Table) * i);" << std::endl;
-            file << "                custom." << name << ".back().m_table = reinterpret_cast<uint8_t*>(table) - ptr;" << std::endl;
+            file << "                auto table = reinterpret_cast<const " << type << "::Table*>(ptr + getTable()->__" << name << " + sizeof(uint32_t) + sizeof(" << type << "::Table) * i);" << std::endl;
+            file << "                custom." << name << ".back().m_table = reinterpret_cast<const uint8_t*>(table) - ptr;" << std::endl;
             file << "            }" << std::endl;
             file << "        }" << std::endl;
         }
@@ -543,7 +543,7 @@ void INBCompiler::genCPP(const std::string &out)
         file << "    uint8_t* to()" << std::endl;
         file << "    {" << std::endl;
         file << "        if (m_from)" << std::endl;
-        file << "            return m_from;" << std::endl;
+        file << "            return const_cast<uint8_t*>(m_from);" << std::endl;
         file << "        else" << std::endl;
         file << "            return m_buffer->data();" << std::endl;
         file << "    }" << std::endl;
@@ -555,7 +555,9 @@ void INBCompiler::genCPP(const std::string &out)
         file << "            return static_cast<uint32_t>(m_buffer->size());" << std::endl;
         file << "    }" << std::endl;
         file << std::endl;
-        //file << "private:" << std::endl;
+        for (const auto &member : st.friends)
+            file << "    friend class " << member << ";" << std::endl;
+        file << "private:" << std::endl;
         file << "    #pragma pack(push, 1)" << std::endl;
         file << "    struct Table" << std::endl;
         file << "    {" << std::endl;
@@ -630,7 +632,7 @@ void INBCompiler::genCPP(const std::string &out)
             file << "    } custom;" << std::endl;
             file << std::endl;
         }
-        file << "    uint8_t* m_from = nullptr;" << std::endl;
+        file << "    const uint8_t* m_from = nullptr;" << std::endl;
         file << "    std::shared_ptr<std::vector<uint8_t>> m_buffer;" << std::endl;
         file << "    uint32_t m_table = 0;" << std::endl;
         file << "};" << std::endl;

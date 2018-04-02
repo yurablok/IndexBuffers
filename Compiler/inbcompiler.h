@@ -105,15 +105,16 @@ private:
     {
         std::string name;
         std::string type;
-        bool isBuiltIn = false;
-        bool isOptional = false;
-        bool isArray = false;
+        bool        isBuiltIn = false;
+        bool        isOptional = false;
+        bool        isArray = false;
     };
     struct StructDescr
     {
-        std::string name;
+        std::set<std::string>       friends;
         std::deque<StructFieldType> fields;
-        uint32_t optionalCount = 0;
+        std::string                 name;
+        uint32_t                    optionalCount = 0;
     };
     std::deque<StructDescr> m_structs;
     //using StructDescr = std::pair<std::deque<std::pair<std::string,

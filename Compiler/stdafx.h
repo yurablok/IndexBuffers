@@ -11,6 +11,8 @@
 #include <deque>
 #include <cctype>
 #include <algorithm>
+#include <set>
+#include <unordered_set>
 
 #ifdef _WIN32
 #   include <Windows.h>
