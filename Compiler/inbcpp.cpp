@@ -96,11 +96,11 @@ void INBCompiler::genCPP(const std::string &out)
     // === =============================== ===
     // ==              classes              ==
     // === =============================== ===
-    for (const auto &st : m_structs)
-    {
-        file << "class " << st.name << ";" << std::endl;
-    }
-    file << std::endl;
+    //for (const auto &st : m_structs)
+    //{
+    //    file << "class " << st.name << ";" << std::endl;
+    //}
+    //file << std::endl;
     for (const auto &st : m_structs)
     {
         const uint32_t optionalCount = st.optionalCount;
@@ -131,7 +131,7 @@ void INBCompiler::genCPP(const std::string &out)
         }
         file << "        _size_" << std::endl;
         file << "    };" << std::endl;
-        file << "    static const char* id_str(const ids& id)" << std::endl;
+        file << "    static const char* name(const ids& id)" << std::endl;
         file << "    {" << std::endl;
         file << "        switch (id)" << std::endl;
         file << "        {" << std::endl;
@@ -139,29 +139,24 @@ void INBCompiler::genCPP(const std::string &out)
         {
             file << "        case ids::" << member.name << ": return \"" << member.name << "\"; " << std::endl;
         }
-        file << "        default: return \"_?unknown_id?_\";" << std::endl;
+        file << "        default: return \"_?unknown_name?_\";" << std::endl;
         file << "        }" << std::endl;
         file << "    }" << std::endl;
         file << std::endl;
         file << "    enum class types" << std::endl;
         file << "    {" << std::endl;
-        file << "        int8," << std::endl;
-        file << "        uint8," << std::endl;
-        file << "        int16," << std::endl;
-        file << "        uint16," << std::endl;
-        file << "        int32," << std::endl;
-        file << "        uint32," << std::endl;
-        file << "        int64," << std::endl;
-        file << "        uint64," << std::endl;
-        file << "        float32," << std::endl;
-        file << "        float64," << std::endl;
+        file << "        int8, uint8, int8a, uint8a," << std::endl;
+        file << "        int16, uint16, int16a, uint16a," << std::endl;
+        file << "        int32, uint32, int32a, uint32a," << std::endl;
+        file << "        int64, uint64, int64a, uint64a," << std::endl;
+        file << "        float32, float32a, float64, float64a," << std::endl;
         file << "        bytes";
         for (uint32_t i = 0; i < st.fields.size(); i++)
         {
             const auto &member = st.fields[i];
             if (member.isBuiltIn)
                 continue;
-            file << "," << std::endl << "        " << member.type;
+            file << "," << std::endl << "        " << member.type << ", " << member.type << "a";
         }
         file << "," << std::endl << "        unknown" << std::endl;
         file << "    };" << std::endl;
@@ -247,14 +242,17 @@ void INBCompiler::genCPP(const std::string &out)
         }
         file << "        }" << std::endl;
         file << "    }" << std::endl;
-        file << "    types type(const ids& id)" << std::endl;
+        file << "    static types type(const ids& id)" << std::endl;
         file << "    {" << std::endl;
         file << "        switch (id)" << std::endl;
         file << "        {" << std::endl;
         for (uint32_t i = 0; i < st.fields.size(); i++)
         {
             const auto &member = st.fields[i];
-            file << "        case ids::" << member.name << ": return types::" << member.type << ";" << std::endl;
+            file << "        case ids::" << member.name << ": return types::" << member.type;
+            if (member.isArray && member.type != tokenBytes)
+                file << "a";
+            file << ";" << std::endl;
         }
         file << "        default: return types::unknown;" << std::endl;
         file << "        }" << std::endl;
@@ -595,7 +593,7 @@ void INBCompiler::genCPP(const std::string &out)
         file << "        }" << std::endl;
         file << "    }" << std::endl;
         file << std::endl;
-        if (builtInCount)
+        if (st.fields.size() - builtInCount)
         {
             file << "    struct" << std::endl;
             file << "    {" << std::endl;

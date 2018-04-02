@@ -78,8 +78,14 @@ TEST(OnlyOptional, Basic)
 
 TEST(Arrays, Basic)
 {
-    ExtNS::IntNS::Arrays src;
-    ExtNS::IntNS::Arrays dst;
+    using namespace ExtNS::IntNS;
+    Arrays src;
+    Arrays dst;
+
+    EXPECT_EQ(Arrays::type(Arrays::ids::b), Arrays::types::bytes);
+    EXPECT_EQ(Arrays::type(Arrays::ids::m), Arrays::types::int16a);
+    EXPECT_EQ(Arrays::type(Arrays::ids::v), Arrays::types::Vec3fa);
+    EXPECT_STREQ(Arrays::name(Arrays::ids::b), "b");
 
     ASSERT_EQ(dst.from(src.to()), true);
     EXPECT_EQ(dst.has_b(), false);

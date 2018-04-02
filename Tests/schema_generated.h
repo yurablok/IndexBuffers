@@ -42,12 +42,6 @@ static const char* Color_str(const Color& id)
 }
 
 
-class OnlyStatic;
-class OnlyOptional;
-class Vec3f;
-class Arrays;
-class Complex;
-
 class OnlyStatic
 {
 public:
@@ -70,7 +64,7 @@ public:
         f,
         _size_
     };
-    static const char* id_str(const ids& id)
+    static const char* name(const ids& id)
     {
         switch (id)
         {
@@ -80,25 +74,20 @@ public:
         case ids::d: return "d"; 
         case ids::e: return "e"; 
         case ids::f: return "f"; 
-        default: return "_?unknown_id?_";
+        default: return "_?unknown_name?_";
         }
     }
 
     enum class types
     {
-        int8,
-        uint8,
-        int16,
-        uint16,
-        int32,
-        uint32,
-        int64,
-        uint64,
-        float32,
-        float64,
+        int8, uint8, int8a, uint8a,
+        int16, uint16, int16a, uint16a,
+        int32, uint32, int32a, uint32a,
+        int64, uint64, int64a, uint64a,
+        float32, float32a, float64, float64a,
         bytes,
         unknown
-};
+    };
 
     uint32_t has(const ids& id)
     {
@@ -158,7 +147,7 @@ public:
             break;
         }
     }
-    types type(const ids& id)
+    static types type(const ids& id)
     {
         switch (id)
         {
@@ -367,10 +356,6 @@ public:
         }
     }
 
-    struct
-    {
-    } custom;
-
     uint8_t* m_from = nullptr;
     std::shared_ptr<std::vector<uint8_t>> m_buffer;
     uint32_t m_table = 0;
@@ -398,7 +383,7 @@ public:
         f,
         _size_
     };
-    static const char* id_str(const ids& id)
+    static const char* name(const ids& id)
     {
         switch (id)
         {
@@ -408,25 +393,20 @@ public:
         case ids::d: return "d"; 
         case ids::e: return "e"; 
         case ids::f: return "f"; 
-        default: return "_?unknown_id?_";
+        default: return "_?unknown_name?_";
         }
     }
 
     enum class types
     {
-        int8,
-        uint8,
-        int16,
-        uint16,
-        int32,
-        uint32,
-        int64,
-        uint64,
-        float32,
-        float64,
+        int8, uint8, int8a, uint8a,
+        int16, uint16, int16a, uint16a,
+        int32, uint32, int32a, uint32a,
+        int64, uint64, int64a, uint64a,
+        float32, float32a, float64, float64a,
         bytes,
         unknown
-};
+    };
 
     uint32_t has(const ids& id)
     {
@@ -470,7 +450,7 @@ public:
         }
         }
     }
-    types type(const ids& id)
+    static types type(const ids& id)
     {
         switch (id)
         {
@@ -685,10 +665,6 @@ public:
         }
     }
 
-    struct
-    {
-    } custom;
-
     uint8_t* m_from = nullptr;
     std::shared_ptr<std::vector<uint8_t>> m_buffer;
     uint32_t m_table = 0;
@@ -713,32 +689,27 @@ public:
         z,
         _size_
     };
-    static const char* id_str(const ids& id)
+    static const char* name(const ids& id)
     {
         switch (id)
         {
         case ids::x: return "x"; 
         case ids::y: return "y"; 
         case ids::z: return "z"; 
-        default: return "_?unknown_id?_";
+        default: return "_?unknown_name?_";
         }
     }
 
     enum class types
     {
-        int8,
-        uint8,
-        int16,
-        uint16,
-        int32,
-        uint32,
-        int64,
-        uint64,
-        float32,
-        float64,
+        int8, uint8, int8a, uint8a,
+        int16, uint16, int16a, uint16a,
+        int32, uint32, int32a, uint32a,
+        int64, uint64, int64a, uint64a,
+        float32, float32a, float64, float64a,
         bytes,
         unknown
-};
+    };
 
     uint32_t has(const ids& id)
     {
@@ -780,7 +751,7 @@ public:
             break;
         }
     }
-    types type(const ids& id)
+    static types type(const ids& id)
     {
         switch (id)
         {
@@ -926,10 +897,6 @@ public:
         }
     }
 
-    struct
-    {
-    } custom;
-
     uint8_t* m_from = nullptr;
     std::shared_ptr<std::vector<uint8_t>> m_buffer;
     uint32_t m_table = 0;
@@ -954,33 +921,28 @@ public:
         v,
         _size_
     };
-    static const char* id_str(const ids& id)
+    static const char* name(const ids& id)
     {
         switch (id)
         {
         case ids::b: return "b"; 
         case ids::m: return "m"; 
         case ids::v: return "v"; 
-        default: return "_?unknown_id?_";
+        default: return "_?unknown_name?_";
         }
     }
 
     enum class types
     {
-        int8,
-        uint8,
-        int16,
-        uint16,
-        int32,
-        uint32,
-        int64,
-        uint64,
-        float32,
-        float64,
+        int8, uint8, int8a, uint8a,
+        int16, uint16, int16a, uint16a,
+        int32, uint32, int32a, uint32a,
+        int64, uint64, int64a, uint64a,
+        float32, float32a, float64, float64a,
         bytes,
-        Vec3f,
+        Vec3f, Vec3fa,
         unknown
-};
+    };
 
     uint32_t has(const ids& id)
     {
@@ -1021,13 +983,13 @@ public:
         }
         }
     }
-    types type(const ids& id)
+    static types type(const ids& id)
     {
         switch (id)
         {
         case ids::b: return types::bytes;
-        case ids::m: return types::int16;
-        case ids::v: return types::Vec3f;
+        case ids::m: return types::int16a;
+        case ids::v: return types::Vec3fa;
         default: return types::unknown;
         }
     }
@@ -1227,29 +1189,24 @@ public:
     {
         _size_
     };
-    static const char* id_str(const ids& id)
+    static const char* name(const ids& id)
     {
         switch (id)
         {
-        default: return "_?unknown_id?_";
+        default: return "_?unknown_name?_";
         }
     }
 
     enum class types
     {
-        int8,
-        uint8,
-        int16,
-        uint16,
-        int32,
-        uint32,
-        int64,
-        uint64,
-        float32,
-        float64,
+        int8, uint8, int8a, uint8a,
+        int16, uint16, int16a, uint16a,
+        int32, uint32, int32a, uint32a,
+        int64, uint64, int64a, uint64a,
+        float32, float32a, float64, float64a,
         bytes,
         unknown
-};
+    };
 
     uint32_t has(const ids& id)
     {
@@ -1273,7 +1230,7 @@ public:
             break;
         }
     }
-    types type(const ids& id)
+    static types type(const ids& id)
     {
         switch (id)
         {
