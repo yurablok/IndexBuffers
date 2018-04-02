@@ -11,6 +11,7 @@ enum class Language
 enum class kw
 {
     Namespace,
+    Const,
     Enum,
     Struct,
     Optional,
@@ -29,6 +30,7 @@ enum class kw
 static const std::map<std::string, kw> keywords =
 {
     { "namespace",  kw::Namespace   },
+    { "const"    ,  kw::Const       },
     { "enum"     ,  kw::Enum        },
     { "struct"   ,  kw::Struct      },
     { "optional" ,  kw::Optional    },
@@ -60,6 +62,7 @@ static const std::string tokenEquals("=");
 static const std::string tokenColon(":");
 static const std::string tokenOptional("optional");
 static const std::string tokenBytes("bytes");
+static const std::string tokenConst("const");
 
 
 class INBCompiler
@@ -77,6 +80,7 @@ private:
     
     void parse();
     void parseNamespace(tokens_it &it);
+    void parseConst(tokens_it &it);
     void parseEnum(tokens_it &it);
     void parseStruct(tokens_it &it);
     bool next(tokens_it &it) const;
@@ -85,6 +89,14 @@ private:
     tokens_t m_tokens;
     
     std::deque<std::string> m_namespaces;
+
+    struct ConstDescr
+    {
+        std::string name;
+        std::string type;
+        std::string value;
+    };
+    std::deque<ConstDescr> m_constants;
 
     using EnumDescr = std::deque<std::pair<std::string, uint32_t>>;
     std::map<std::string, EnumDescr> m_enums;
@@ -103,7 +115,7 @@ private:
         std::deque<StructFieldType> fields;
         uint32_t optionalCount = 0;
     };
-    std::vector<StructDescr> m_structs;
+    std::deque<StructDescr> m_structs;
     //using StructDescr = std::pair<std::deque<std::pair<std::string,
     //                                                  StructFieldType>>,
     //                              uint32_t>;

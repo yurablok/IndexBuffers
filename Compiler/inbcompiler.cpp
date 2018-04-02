@@ -156,6 +156,9 @@ void INBCompiler::parse()
         case kw::Namespace:
             parseNamespace(it);
             break;
+        case kw::Const:
+            parseConst(it);
+            break;
         case kw::Enum:
             parseEnum(it);
             break;
@@ -187,6 +190,37 @@ void INBCompiler::parseNamespace(tokens_it &it)
         for (const auto &ns : m_namespaces)
             std::cout << ns << ' ';
         std::cout << clr::default_ << std::endl;
+    }
+}
+
+// <const> <NAME> <:> <TYPE> <=> <VALUE>
+void INBCompiler::parseConst(INBCompiler::tokens_it &it)
+{
+    if (!next(it)) // ++<namespace>
+        return;
+    m_constants.emplace_back();
+    m_constants.back().name = std::move(*it); // <NAME>
+    if (!next(it)) // ++<NAME>
+        return;
+    if (*it != tokenColon) // <:>
+        return;
+    if (!next(it)) // ++<:>
+        return;
+    m_constants.back().type = std::move(*it); // <TYPE>
+    if (!next(it)) // ++<TYPE>
+        return;
+    if (*it != tokenEquals) // <=>
+        return;
+    if (!next(it)) // ++<=>
+        return;
+    m_constants.back().value = std::move(*it); // <VALUE>
+    next(it); // ++<VALUE>
+    if (m_detailed)
+    {
+        std::cout << "CONSTANT: " << clr::blue;
+        std::cout << m_constants.back().name << clr::default_ << ':'
+                  << m_constants.back().type << '='
+                  << m_constants.back().value << std::endl;
     }
 }
 

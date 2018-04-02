@@ -63,6 +63,27 @@ void INBCompiler::genCPP(const std::string &out)
     file << "}" << std::endl;
     file << std::endl;
     // === =============================== ===
+    // ==             constants             ==
+    // === =============================== ===
+    for (const auto &c : m_constants)
+    {
+        auto stnd = standard.find(c.type);
+        try
+        {
+            std::stof(c.value);
+        }
+        catch (...)
+        {
+            std::cout << clr::yellow << "Wrong value " << c.value << " for constant "
+                      << c.name << ":" << c.type << clr::default_ << std::endl;
+            continue;
+        }
+        if (stnd == standard.end())
+            std::cout << clr::yellow << "Unknown type for constant "
+                      << c.name << ": " << c.type << clr::default_ << std::endl;
+        file << "static const " << stnd->second << " " << c.name << " = " << c.value << ";" << std::endl;
+    }
+    // === =============================== ===
     // ==               enums               ==
     // === =============================== ===
     for (const auto &en : m_enums)
