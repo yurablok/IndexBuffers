@@ -720,7 +720,7 @@ void INBCompiler::genCPP(const std::string &out)
         }
         file << "    uint8_t* m_from = nullptr;" << std::endl;
         file << "    std::shared_ptr<std::vector<uint8_t>> m_buffer;" << std::endl;
-        file << "    uint32_t m_table = 0;" << std::endl;
+        file << "    uint32_t m_table = sizeof(_inner_::header);" << std::endl;
         file << "};" << std::endl;
         file << std::endl;
     }
