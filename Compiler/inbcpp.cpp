@@ -134,7 +134,11 @@ void INBCompiler::genCPP(const std::string &out)
         file << "    {" << std::endl;
         file << "        create(reserve);" << std::endl;
         file << "    }" << std::endl;
-        file << "    " << st.name << "(uint8_t *from_)" << std::endl;
+        file << "    " << st.name << "(uint8_t* from_)" << std::endl;
+        file << "    {" << std::endl;
+        file << "        this->from(from_);" << std::endl;
+        file << "    }" << std::endl;
+        file << "    " << st.name << "(const uint8_t* from_)" << std::endl;
         file << "    {" << std::endl;
         file << "        this->from(from_);" << std::endl;
         file << "    }" << std::endl;
@@ -185,9 +189,9 @@ void INBCompiler::genCPP(const std::string &out)
         // === =============================== ===
         // ==       main has,get,set,size       ==
         // === =============================== ===
-        file << "    uint32_t has(const ids& id)" << std::endl;
+        file << "    uint32_t has(const ids& id) const" << std::endl;
         file << "    {" << std::endl;
-        file << "        return address(id, getTable());" << std::endl;
+        file << "        return caddress(id, cgetTable());" << std::endl;
         file << "    }" << std::endl;
         file << "    uint8_t* get(const ids& id)" << std::endl;
         file << "    {" << std::endl;
@@ -198,8 +202,6 @@ void INBCompiler::genCPP(const std::string &out)
         for (uint32_t i = 0; i < st.fields.size(); i++)
         {
             const auto &member = st.fields[i];
-            //if (standard.find(member.second.type) == standard.end())
-            //    continue;
             if (i < staticCount)
             {
                 file << "        case ids::" << member.name << ":" << std::endl;
@@ -218,6 +220,33 @@ void INBCompiler::genCPP(const std::string &out)
         file << "            return nullptr;" << std::endl;
         file << "        }" << std::endl;
         file << "    }" << std::endl;
+        file << "    const uint8_t* cget(const ids& id) const" << std::endl;
+        file << "    {" << std::endl;
+        file << "        const Table* table = cgetTable();" << std::endl;
+        file << "        const uint8_t* ptr = cto();" << std::endl;
+        file << "        switch (id)" << std::endl;
+        file << "        {" << std::endl;
+        for (uint32_t i = 0; i < st.fields.size(); i++)
+        {
+            const auto &member = st.fields[i];
+            if (i < staticCount)
+            {
+                file << "        case ids::" << member.name << ":" << std::endl;
+                file << "            return reinterpret_cast<const uint8_t*>(&table->" << member.name << ");" << std::endl;
+            }
+            else
+            {
+                file << "        case ids::" << member.name << ":" << std::endl;
+            }
+        }
+        if (optionalCount)
+        {
+            file << "            return &ptr[caddress(id, table) + sizeof(uint32_t)];" << std::endl;
+        }
+        file << "        default:" << std::endl;
+        file << "            return nullptr;" << std::endl;
+        file << "        }" << std::endl;
+        file << "    }" << std::endl;
         file << "    void set(const ids& id, const void* data, const uint32_t size)" << std::endl;
         file << "    {" << std::endl;
         file << "        switch (id)" << std::endl;
@@ -225,8 +254,6 @@ void INBCompiler::genCPP(const std::string &out)
         for (uint32_t i = 0; i < st.fields.size(); i++)
         {
             const auto &member = st.fields[i];
-            //if (standard.find(member.second.type) == standard.end())
-            //    continue;
             if (i < staticCount)
             {
                 file << "        case ids::" << member.name << ":" << std::endl;
@@ -278,11 +305,11 @@ void INBCompiler::genCPP(const std::string &out)
         file << "        default: return types::unknown;" << std::endl;
         file << "        }" << std::endl;
         file << "    }" << std::endl;
-        file << "    uint32_t size(const ids& id)" << std::endl;
+        file << "    uint32_t size(const ids& id) const" << std::endl;
         file << "    {" << std::endl;
-        file << "        uint8_t* ptr = m_from ? const_cast<uint8_t*>(m_from) : &m_buffer->data()[0];" << std::endl;
+        file << "        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];" << std::endl;
         file << "        Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);" << std::endl;
-        file << "        const uint32_t offset = address(id, table);" << std::endl;
+        file << "        const uint32_t offset = caddress(id, table);" << std::endl;
         file << "        return *reinterpret_cast<uint32_t*>(&ptr[offset]);" << std::endl;
         file << "    }" << std::endl;
         file << std::endl;
@@ -304,7 +331,7 @@ void INBCompiler::genCPP(const std::string &out)
             // === =============================== ===
             // ==                has                ==
             // === =============================== ===
-            file << "    bool has_" << name << "()" << std::endl;
+            file << "    bool has_" << name << "() const" << std::endl;
             file << "    {" << std::endl;
             if (isOptional)
             {
@@ -318,7 +345,7 @@ void INBCompiler::genCPP(const std::string &out)
             // === =============================== ===
             // ==               size                ==
             // === =============================== ===
-            file << "    uint32_t size_" << name << "()" << std::endl;
+            file << "    uint32_t size_" << name << "() const" << std::endl;
             file << "    {" << std::endl;
             if (isBuiltIn)
             {
@@ -373,28 +400,28 @@ void INBCompiler::genCPP(const std::string &out)
                         file << "    {" << std::endl;
                         file << "        return reinterpret_cast<" << *type << "*>(get(ids::" << name << "));" << std::endl;
                         file << "    }" << std::endl;
-                        file << "    const " << *type << "& get_" << name << "(const uint32_t index)" << std::endl;
+                        file << "    const " << *type << "& get_" << name << "(const uint32_t index) const" << std::endl;
                         file << "    {" << std::endl;
-                        file << "        const " << *type << "* ptr = reinterpret_cast<" << *type << "*>(get(ids::" << name << "));" << std::endl;
+                        file << "        const " << *type << "* ptr = reinterpret_cast<const " << *type << "*>(cget(ids::" << name << "));" << std::endl;
                         file << "        if (!ptr)" << std::endl;
                         file << "            throw std::logic_error(\"Nullptr\");" << std::endl;
                         file << "        return ptr[index];" << std::endl;
                     }
                     else
                     {
-                        file << "    " << *type << " get_" << name << "()" << std::endl;
+                        file << "    " << *type << " get_" << name << "() const" << std::endl;
                         file << "    {" << std::endl;
                         file << "        " << *type << " dst;" << std::endl;
-                        file << "        _inner_::copybybytes(get(ids::" << name << "), &dst, sizeof(" << *type << "));" << std::endl;
+                        file << "        _inner_::copybybytes(cget(ids::" << name << "), &dst, sizeof(" << *type << "));" << std::endl;
                         file << "        return dst;" << std::endl;
                     }
                 }
                 else
                 {
-                    file << "    " << *type << " get_" << name << "()" << std::endl;
+                    file << "    " << *type << " get_" << name << "() const" << std::endl;
                     file << "    {" << std::endl;
                     file << "        " << *type << " dst;" << std::endl;
-                    file << "        _inner_::copybybytes(get(ids::" << name << "), &dst, sizeof(" << *type << "));" << std::endl;
+                    file << "        _inner_::copybybytes(cget(ids::" << name << "), &dst, sizeof(" << *type << "));" << std::endl;
                     file << "        return dst;" << std::endl;
                 }
             }
@@ -505,6 +532,40 @@ void INBCompiler::genCPP(const std::string &out)
         file << "        h->signature1  = 'b';" << std::endl;
         file << "        m_table = sizeof(_inner_::header);" << std::endl;
         file << "    }" << std::endl;
+        file << "    bool from(uint8_t* ptr)" << std::endl;
+        file << "    {" << std::endl;
+        file << "        if (!ptr)" << std::endl;
+        file << "            return false;" << std::endl;
+        file << "        const _inner_::header* h = reinterpret_cast<const _inner_::header*>(ptr);" << std::endl;
+        file << "        if (h->signature0 != 'i' ||" << std::endl;
+        file << "            h->signature1 != 'b')" << std::endl;
+        file << "            return false;" << std::endl;
+        file << "        m_buffer.reset();" << std::endl;
+        file << "        m_from = ptr;" << std::endl;
+        for (const auto &member : st.fields)
+        {
+            const bool &isBuiltIn = member.isBuiltIn;
+            if (isBuiltIn)
+                continue;
+            const std::string &name = member.name;
+            const bool &isOptional = member.isOptional;
+            const std::string &type = member.type;
+
+            file << "        if (getTable()->__" << name << ")" << std::endl;
+            file << "        {" << std::endl;
+            file << "            const uint32_t number = size(ids::" << name << ") / sizeof(" << type << "::Table);" << std::endl;
+            file << "            custom." << name << ".reserve(number);" << std::endl;
+            file << "            for (uint32_t i = 0; i < number; ++i)" << std::endl;
+            file << "            {" << std::endl;
+            file << "                custom." << name << ".emplace_back();" << std::endl;
+            file << "                custom." << name << ".back().from(ptr);" << std::endl;
+            file << "                auto table = reinterpret_cast<const " << type << "::Table*>(ptr + getTable()->__" << name << " + sizeof(uint32_t) + sizeof(" << type << "::Table) * i);" << std::endl;
+            file << "                custom." << name << ".back().m_table = reinterpret_cast<const uint8_t*>(table) - ptr;" << std::endl;
+            file << "            }" << std::endl;
+            file << "        }" << std::endl;
+        }
+        file << "        return true;" << std::endl;
+        file << "    }" << std::endl;
         file << "    bool from(const uint8_t* ptr)" << std::endl;
         file << "    {" << std::endl;
         file << "        if (!ptr)" << std::endl;
@@ -513,9 +574,8 @@ void INBCompiler::genCPP(const std::string &out)
         file << "        if (h->signature0 != 'i' ||" << std::endl;
         file << "            h->signature1 != 'b')" << std::endl;
         file << "            return false;" << std::endl;
-        file << "        if (!m_buffer->empty())" << std::endl;
-        file << "            m_buffer->clear();" << std::endl;
-        file << "        m_from = ptr;" << std::endl;
+        file << "        m_buffer.reset();" << std::endl;
+        file << "        m_from = const_cast<uint8_t*>(ptr);" << std::endl;
         for (const auto &member : st.fields)
         {
             const bool &isBuiltIn = member.isBuiltIn;
@@ -544,6 +604,13 @@ void INBCompiler::genCPP(const std::string &out)
         file << "    {" << std::endl;
         file << "        if (m_from)" << std::endl;
         file << "            return const_cast<uint8_t*>(m_from);" << std::endl;
+        file << "        else" << std::endl;
+        file << "            return m_buffer->data();" << std::endl;
+        file << "    }" << std::endl;
+        file << "    const uint8_t* cto() const" << std::endl;
+        file << "    {" << std::endl;
+        file << "        if (m_from)" << std::endl;
+        file << "            return m_from;" << std::endl;
         file << "        else" << std::endl;
         file << "            return m_buffer->data();" << std::endl;
         file << "    }" << std::endl;
@@ -583,6 +650,10 @@ void INBCompiler::genCPP(const std::string &out)
         file << "    {" << std::endl;
         file << "        return reinterpret_cast<Table*>(&to()[m_table]);" << std::endl;
         file << "    }" << std::endl;
+        file << "    const Table* cgetTable() const" << std::endl;
+        file << "    {" << std::endl;
+        file << "        return reinterpret_cast<const Table*>(&cto()[m_table]);" << std::endl;
+        file << "    }" << std::endl;
         file << "    uint32_t insert(const uint32_t size)" << std::endl;
         file << "    {" << std::endl;
         file << "        if (m_from)" << std::endl;
@@ -615,6 +686,21 @@ void INBCompiler::genCPP(const std::string &out)
         file << "        default: return _inner_::zero;" << std::endl;
         file << "        }" << std::endl;
         file << "    }" << std::endl;
+        file << "    uint32_t caddress(const ids& id, const Table* table) const" << std::endl;
+        file << "    {" << std::endl;
+        file << "        switch (id)" << std::endl;
+        file << "        {" << std::endl;
+        for (const auto &member : st.fields)
+        {
+            const std::string &name = member.name;
+            const bool &isOptional = member.isOptional;
+            if (!isOptional)
+                continue;
+            file << "        case ids::" << name << ": return table->__" << name << ";" << std::endl;
+        }
+        file << "        default: return _inner_::zero;" << std::endl;
+        file << "        }" << std::endl;
+        file << "    }" << std::endl;
         file << std::endl;
         if (st.fields.size() - builtInCount)
         {
@@ -632,7 +718,7 @@ void INBCompiler::genCPP(const std::string &out)
             file << "    } custom;" << std::endl;
             file << std::endl;
         }
-        file << "    const uint8_t* m_from = nullptr;" << std::endl;
+        file << "    uint8_t* m_from = nullptr;" << std::endl;
         file << "    std::shared_ptr<std::vector<uint8_t>> m_buffer;" << std::endl;
         file << "    uint32_t m_table = 0;" << std::endl;
         file << "};" << std::endl;

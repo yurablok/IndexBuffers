@@ -50,7 +50,11 @@ public:
     {
         create(reserve);
     }
-    OnlyStatic(uint8_t *from_)
+    OnlyStatic(uint8_t* from_)
+    {
+        this->from(from_);
+    }
+    OnlyStatic(const uint8_t* from_)
     {
         this->from(from_);
     }
@@ -90,9 +94,9 @@ public:
         unknown
     };
 
-    uint32_t has(const ids& id)
+    uint32_t has(const ids& id) const
     {
-        return address(id, getTable());
+        return caddress(id, cgetTable());
     }
     uint8_t* get(const ids& id)
     {
@@ -112,6 +116,28 @@ public:
             return reinterpret_cast<uint8_t*>(&table->e);
         case ids::f:
             return reinterpret_cast<uint8_t*>(&table->f);
+        default:
+            return nullptr;
+        }
+    }
+    const uint8_t* cget(const ids& id) const
+    {
+        const Table* table = cgetTable();
+        const uint8_t* ptr = cto();
+        switch (id)
+        {
+        case ids::a:
+            return reinterpret_cast<const uint8_t*>(&table->a);
+        case ids::b:
+            return reinterpret_cast<const uint8_t*>(&table->b);
+        case ids::c:
+            return reinterpret_cast<const uint8_t*>(&table->c);
+        case ids::d:
+            return reinterpret_cast<const uint8_t*>(&table->d);
+        case ids::e:
+            return reinterpret_cast<const uint8_t*>(&table->e);
+        case ids::f:
+            return reinterpret_cast<const uint8_t*>(&table->f);
         default:
             return nullptr;
         }
@@ -161,26 +187,26 @@ public:
         default: return types::unknown;
         }
     }
-    uint32_t size(const ids& id)
+    uint32_t size(const ids& id) const
     {
-        uint8_t* ptr = m_from ? const_cast<uint8_t*>(m_from) : &m_buffer->data()[0];
+        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];
         Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);
-        const uint32_t offset = address(id, table);
+        const uint32_t offset = caddress(id, table);
         return *reinterpret_cast<uint32_t*>(&ptr[offset]);
     }
 
-    bool has_a()
+    bool has_a() const
     {
         return true;
     }
-    uint32_t size_a()
+    uint32_t size_a() const
     {
         return sizeof(int8_t);
     }
-    int8_t get_a()
+    int8_t get_a() const
     {
         int8_t dst;
-        _inner_::copybybytes(get(ids::a), &dst, sizeof(int8_t));
+        _inner_::copybybytes(cget(ids::a), &dst, sizeof(int8_t));
         return dst;
     }
     void set_a(const int8_t& a)
@@ -188,18 +214,18 @@ public:
         _inner_::copybybytes(&a, get(ids::a), sizeof(int8_t));
     }
 
-    bool has_b()
+    bool has_b() const
     {
         return true;
     }
-    uint32_t size_b()
+    uint32_t size_b() const
     {
         return sizeof(uint16_t);
     }
-    uint16_t get_b()
+    uint16_t get_b() const
     {
         uint16_t dst;
-        _inner_::copybybytes(get(ids::b), &dst, sizeof(uint16_t));
+        _inner_::copybybytes(cget(ids::b), &dst, sizeof(uint16_t));
         return dst;
     }
     void set_b(const uint16_t& b)
@@ -207,18 +233,18 @@ public:
         _inner_::copybybytes(&b, get(ids::b), sizeof(uint16_t));
     }
 
-    bool has_c()
+    bool has_c() const
     {
         return true;
     }
-    uint32_t size_c()
+    uint32_t size_c() const
     {
         return sizeof(int32_t);
     }
-    int32_t get_c()
+    int32_t get_c() const
     {
         int32_t dst;
-        _inner_::copybybytes(get(ids::c), &dst, sizeof(int32_t));
+        _inner_::copybybytes(cget(ids::c), &dst, sizeof(int32_t));
         return dst;
     }
     void set_c(const int32_t& c)
@@ -226,18 +252,18 @@ public:
         _inner_::copybybytes(&c, get(ids::c), sizeof(int32_t));
     }
 
-    bool has_d()
+    bool has_d() const
     {
         return true;
     }
-    uint32_t size_d()
+    uint32_t size_d() const
     {
         return sizeof(uint64_t);
     }
-    uint64_t get_d()
+    uint64_t get_d() const
     {
         uint64_t dst;
-        _inner_::copybybytes(get(ids::d), &dst, sizeof(uint64_t));
+        _inner_::copybybytes(cget(ids::d), &dst, sizeof(uint64_t));
         return dst;
     }
     void set_d(const uint64_t& d)
@@ -245,18 +271,18 @@ public:
         _inner_::copybybytes(&d, get(ids::d), sizeof(uint64_t));
     }
 
-    bool has_e()
+    bool has_e() const
     {
         return true;
     }
-    uint32_t size_e()
+    uint32_t size_e() const
     {
         return sizeof(float);
     }
-    float get_e()
+    float get_e() const
     {
         float dst;
-        _inner_::copybybytes(get(ids::e), &dst, sizeof(float));
+        _inner_::copybybytes(cget(ids::e), &dst, sizeof(float));
         return dst;
     }
     void set_e(const float& e)
@@ -264,18 +290,18 @@ public:
         _inner_::copybybytes(&e, get(ids::e), sizeof(float));
     }
 
-    bool has_f()
+    bool has_f() const
     {
         return true;
     }
-    uint32_t size_f()
+    uint32_t size_f() const
     {
         return sizeof(double);
     }
-    double get_f()
+    double get_f() const
     {
         double dst;
-        _inner_::copybybytes(get(ids::f), &dst, sizeof(double));
+        _inner_::copybybytes(cget(ids::f), &dst, sizeof(double));
         return dst;
     }
     void set_f(const double& f)
@@ -294,6 +320,18 @@ public:
         h->signature1  = 'b';
         m_table = sizeof(_inner_::header);
     }
+    bool from(uint8_t* ptr)
+    {
+        if (!ptr)
+            return false;
+        const _inner_::header* h = reinterpret_cast<const _inner_::header*>(ptr);
+        if (h->signature0 != 'i' ||
+            h->signature1 != 'b')
+            return false;
+        m_buffer.reset();
+        m_from = ptr;
+        return true;
+    }
     bool from(const uint8_t* ptr)
     {
         if (!ptr)
@@ -304,13 +342,20 @@ public:
             return false;
         if (!m_buffer->empty())
             m_buffer->clear();
-        m_from = ptr;
+        m_from = const_cast<uint8_t*>(ptr);
         return true;
     }
     uint8_t* to()
     {
         if (m_from)
             return const_cast<uint8_t*>(m_from);
+        else
+            return m_buffer->data();
+    }
+    const uint8_t* cto() const
+    {
+        if (m_from)
+            return m_from;
         else
             return m_buffer->data();
     }
@@ -339,6 +384,10 @@ private:
     {
         return reinterpret_cast<Table*>(&to()[m_table]);
     }
+    const Table* cgetTable() const
+    {
+        return reinterpret_cast<const Table*>(&cto()[m_table]);
+    }
     uint32_t insert(const uint32_t size)
     {
         if (m_from)
@@ -357,8 +406,15 @@ private:
         default: return _inner_::zero;
         }
     }
+    uint32_t caddress(const ids& id, const Table* table) const
+    {
+        switch (id)
+        {
+        default: return _inner_::zero;
+        }
+    }
 
-    const uint8_t* m_from = nullptr;
+    uint8_t* m_from = nullptr;
     std::shared_ptr<std::vector<uint8_t>> m_buffer;
     uint32_t m_table = 0;
 };
@@ -370,7 +426,11 @@ public:
     {
         create(reserve);
     }
-    OnlyOptional(uint8_t *from_)
+    OnlyOptional(uint8_t* from_)
+    {
+        this->from(from_);
+    }
+    OnlyOptional(const uint8_t* from_)
     {
         this->from(from_);
     }
@@ -410,9 +470,9 @@ public:
         unknown
     };
 
-    uint32_t has(const ids& id)
+    uint32_t has(const ids& id) const
     {
-        return address(id, getTable());
+        return caddress(id, cgetTable());
     }
     uint8_t* get(const ids& id)
     {
@@ -427,6 +487,23 @@ public:
         case ids::e:
         case ids::f:
             return &ptr[address(id, table) + sizeof(uint32_t)];
+        default:
+            return nullptr;
+        }
+    }
+    const uint8_t* cget(const ids& id) const
+    {
+        const Table* table = cgetTable();
+        const uint8_t* ptr = cto();
+        switch (id)
+        {
+        case ids::a:
+        case ids::b:
+        case ids::c:
+        case ids::d:
+        case ids::e:
+        case ids::f:
+            return &ptr[caddress(id, table) + sizeof(uint32_t)];
         default:
             return nullptr;
         }
@@ -465,26 +542,26 @@ public:
         default: return types::unknown;
         }
     }
-    uint32_t size(const ids& id)
+    uint32_t size(const ids& id) const
     {
-        uint8_t* ptr = m_from ? const_cast<uint8_t*>(m_from) : &m_buffer->data()[0];
+        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];
         Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);
-        const uint32_t offset = address(id, table);
+        const uint32_t offset = caddress(id, table);
         return *reinterpret_cast<uint32_t*>(&ptr[offset]);
     }
 
-    bool has_a()
+    bool has_a() const
     {
         return has(ids::a) != 0;
     }
-    uint32_t size_a()
+    uint32_t size_a() const
     {
         return size(ids::a);
     }
-    int8_t get_a()
+    int8_t get_a() const
     {
         int8_t dst;
-        _inner_::copybybytes(get(ids::a), &dst, sizeof(int8_t));
+        _inner_::copybybytes(cget(ids::a), &dst, sizeof(int8_t));
         return dst;
     }
     void set_a(const int8_t& a)
@@ -492,18 +569,18 @@ public:
         set(ids::a, &a, sizeof(int8_t));
     }
 
-    bool has_b()
+    bool has_b() const
     {
         return has(ids::b) != 0;
     }
-    uint32_t size_b()
+    uint32_t size_b() const
     {
         return size(ids::b);
     }
-    uint16_t get_b()
+    uint16_t get_b() const
     {
         uint16_t dst;
-        _inner_::copybybytes(get(ids::b), &dst, sizeof(uint16_t));
+        _inner_::copybybytes(cget(ids::b), &dst, sizeof(uint16_t));
         return dst;
     }
     void set_b(const uint16_t& b)
@@ -511,18 +588,18 @@ public:
         set(ids::b, &b, sizeof(uint16_t));
     }
 
-    bool has_c()
+    bool has_c() const
     {
         return has(ids::c) != 0;
     }
-    uint32_t size_c()
+    uint32_t size_c() const
     {
         return size(ids::c);
     }
-    int32_t get_c()
+    int32_t get_c() const
     {
         int32_t dst;
-        _inner_::copybybytes(get(ids::c), &dst, sizeof(int32_t));
+        _inner_::copybybytes(cget(ids::c), &dst, sizeof(int32_t));
         return dst;
     }
     void set_c(const int32_t& c)
@@ -530,18 +607,18 @@ public:
         set(ids::c, &c, sizeof(int32_t));
     }
 
-    bool has_d()
+    bool has_d() const
     {
         return has(ids::d) != 0;
     }
-    uint32_t size_d()
+    uint32_t size_d() const
     {
         return size(ids::d);
     }
-    uint64_t get_d()
+    uint64_t get_d() const
     {
         uint64_t dst;
-        _inner_::copybybytes(get(ids::d), &dst, sizeof(uint64_t));
+        _inner_::copybybytes(cget(ids::d), &dst, sizeof(uint64_t));
         return dst;
     }
     void set_d(const uint64_t& d)
@@ -549,18 +626,18 @@ public:
         set(ids::d, &d, sizeof(uint64_t));
     }
 
-    bool has_e()
+    bool has_e() const
     {
         return has(ids::e) != 0;
     }
-    uint32_t size_e()
+    uint32_t size_e() const
     {
         return size(ids::e);
     }
-    float get_e()
+    float get_e() const
     {
         float dst;
-        _inner_::copybybytes(get(ids::e), &dst, sizeof(float));
+        _inner_::copybybytes(cget(ids::e), &dst, sizeof(float));
         return dst;
     }
     void set_e(const float& e)
@@ -568,18 +645,18 @@ public:
         set(ids::e, &e, sizeof(float));
     }
 
-    bool has_f()
+    bool has_f() const
     {
         return has(ids::f) != 0;
     }
-    uint32_t size_f()
+    uint32_t size_f() const
     {
         return size(ids::f);
     }
-    double get_f()
+    double get_f() const
     {
         double dst;
-        _inner_::copybybytes(get(ids::f), &dst, sizeof(double));
+        _inner_::copybybytes(cget(ids::f), &dst, sizeof(double));
         return dst;
     }
     void set_f(const double& f)
@@ -598,6 +675,18 @@ public:
         h->signature1  = 'b';
         m_table = sizeof(_inner_::header);
     }
+    bool from(uint8_t* ptr)
+    {
+        if (!ptr)
+            return false;
+        const _inner_::header* h = reinterpret_cast<const _inner_::header*>(ptr);
+        if (h->signature0 != 'i' ||
+            h->signature1 != 'b')
+            return false;
+        m_buffer.reset();
+        m_from = ptr;
+        return true;
+    }
     bool from(const uint8_t* ptr)
     {
         if (!ptr)
@@ -608,13 +697,20 @@ public:
             return false;
         if (!m_buffer->empty())
             m_buffer->clear();
-        m_from = ptr;
+        m_from = const_cast<uint8_t*>(ptr);
         return true;
     }
     uint8_t* to()
     {
         if (m_from)
             return const_cast<uint8_t*>(m_from);
+        else
+            return m_buffer->data();
+    }
+    const uint8_t* cto() const
+    {
+        if (m_from)
+            return m_from;
         else
             return m_buffer->data();
     }
@@ -643,6 +739,10 @@ private:
     {
         return reinterpret_cast<Table*>(&to()[m_table]);
     }
+    const Table* cgetTable() const
+    {
+        return reinterpret_cast<const Table*>(&cto()[m_table]);
+    }
     uint32_t insert(const uint32_t size)
     {
         if (m_from)
@@ -667,8 +767,21 @@ private:
         default: return _inner_::zero;
         }
     }
+    uint32_t caddress(const ids& id, const Table* table) const
+    {
+        switch (id)
+        {
+        case ids::a: return table->__a;
+        case ids::b: return table->__b;
+        case ids::c: return table->__c;
+        case ids::d: return table->__d;
+        case ids::e: return table->__e;
+        case ids::f: return table->__f;
+        default: return _inner_::zero;
+        }
+    }
 
-    const uint8_t* m_from = nullptr;
+    uint8_t* m_from = nullptr;
     std::shared_ptr<std::vector<uint8_t>> m_buffer;
     uint32_t m_table = 0;
 };
@@ -680,7 +793,11 @@ public:
     {
         create(reserve);
     }
-    Vec3f(uint8_t *from_)
+    Vec3f(uint8_t* from_)
+    {
+        this->from(from_);
+    }
+    Vec3f(const uint8_t* from_)
     {
         this->from(from_);
     }
@@ -714,9 +831,9 @@ public:
         unknown
     };
 
-    uint32_t has(const ids& id)
+    uint32_t has(const ids& id) const
     {
-        return address(id, getTable());
+        return caddress(id, cgetTable());
     }
     uint8_t* get(const ids& id)
     {
@@ -730,6 +847,22 @@ public:
             return reinterpret_cast<uint8_t*>(&table->y);
         case ids::z:
             return reinterpret_cast<uint8_t*>(&table->z);
+        default:
+            return nullptr;
+        }
+    }
+    const uint8_t* cget(const ids& id) const
+    {
+        const Table* table = cgetTable();
+        const uint8_t* ptr = cto();
+        switch (id)
+        {
+        case ids::x:
+            return reinterpret_cast<const uint8_t*>(&table->x);
+        case ids::y:
+            return reinterpret_cast<const uint8_t*>(&table->y);
+        case ids::z:
+            return reinterpret_cast<const uint8_t*>(&table->z);
         default:
             return nullptr;
         }
@@ -764,26 +897,26 @@ public:
         default: return types::unknown;
         }
     }
-    uint32_t size(const ids& id)
+    uint32_t size(const ids& id) const
     {
-        uint8_t* ptr = m_from ? const_cast<uint8_t*>(m_from) : &m_buffer->data()[0];
+        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];
         Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);
-        const uint32_t offset = address(id, table);
+        const uint32_t offset = caddress(id, table);
         return *reinterpret_cast<uint32_t*>(&ptr[offset]);
     }
 
-    bool has_x()
+    bool has_x() const
     {
         return true;
     }
-    uint32_t size_x()
+    uint32_t size_x() const
     {
         return sizeof(float);
     }
-    float get_x()
+    float get_x() const
     {
         float dst;
-        _inner_::copybybytes(get(ids::x), &dst, sizeof(float));
+        _inner_::copybybytes(cget(ids::x), &dst, sizeof(float));
         return dst;
     }
     void set_x(const float& x)
@@ -791,18 +924,18 @@ public:
         _inner_::copybybytes(&x, get(ids::x), sizeof(float));
     }
 
-    bool has_y()
+    bool has_y() const
     {
         return true;
     }
-    uint32_t size_y()
+    uint32_t size_y() const
     {
         return sizeof(float);
     }
-    float get_y()
+    float get_y() const
     {
         float dst;
-        _inner_::copybybytes(get(ids::y), &dst, sizeof(float));
+        _inner_::copybybytes(cget(ids::y), &dst, sizeof(float));
         return dst;
     }
     void set_y(const float& y)
@@ -810,18 +943,18 @@ public:
         _inner_::copybybytes(&y, get(ids::y), sizeof(float));
     }
 
-    bool has_z()
+    bool has_z() const
     {
         return true;
     }
-    uint32_t size_z()
+    uint32_t size_z() const
     {
         return sizeof(float);
     }
-    float get_z()
+    float get_z() const
     {
         float dst;
-        _inner_::copybybytes(get(ids::z), &dst, sizeof(float));
+        _inner_::copybybytes(cget(ids::z), &dst, sizeof(float));
         return dst;
     }
     void set_z(const float& z)
@@ -840,6 +973,18 @@ public:
         h->signature1  = 'b';
         m_table = sizeof(_inner_::header);
     }
+    bool from(uint8_t* ptr)
+    {
+        if (!ptr)
+            return false;
+        const _inner_::header* h = reinterpret_cast<const _inner_::header*>(ptr);
+        if (h->signature0 != 'i' ||
+            h->signature1 != 'b')
+            return false;
+        m_buffer.reset();
+        m_from = ptr;
+        return true;
+    }
     bool from(const uint8_t* ptr)
     {
         if (!ptr)
@@ -850,13 +995,20 @@ public:
             return false;
         if (!m_buffer->empty())
             m_buffer->clear();
-        m_from = ptr;
+        m_from = const_cast<uint8_t*>(ptr);
         return true;
     }
     uint8_t* to()
     {
         if (m_from)
             return const_cast<uint8_t*>(m_from);
+        else
+            return m_buffer->data();
+    }
+    const uint8_t* cto() const
+    {
+        if (m_from)
+            return m_from;
         else
             return m_buffer->data();
     }
@@ -883,6 +1035,10 @@ private:
     {
         return reinterpret_cast<Table*>(&to()[m_table]);
     }
+    const Table* cgetTable() const
+    {
+        return reinterpret_cast<const Table*>(&cto()[m_table]);
+    }
     uint32_t insert(const uint32_t size)
     {
         if (m_from)
@@ -901,8 +1057,15 @@ private:
         default: return _inner_::zero;
         }
     }
+    uint32_t caddress(const ids& id, const Table* table) const
+    {
+        switch (id)
+        {
+        default: return _inner_::zero;
+        }
+    }
 
-    const uint8_t* m_from = nullptr;
+    uint8_t* m_from = nullptr;
     std::shared_ptr<std::vector<uint8_t>> m_buffer;
     uint32_t m_table = 0;
 };
@@ -914,7 +1077,11 @@ public:
     {
         create(reserve);
     }
-    Arrays(uint8_t *from_)
+    Arrays(uint8_t* from_)
+    {
+        this->from(from_);
+    }
+    Arrays(const uint8_t* from_)
     {
         this->from(from_);
     }
@@ -949,9 +1116,9 @@ public:
         unknown
     };
 
-    uint32_t has(const ids& id)
+    uint32_t has(const ids& id) const
     {
-        return address(id, getTable());
+        return caddress(id, cgetTable());
     }
     uint8_t* get(const ids& id)
     {
@@ -963,6 +1130,20 @@ public:
         case ids::m:
         case ids::v:
             return &ptr[address(id, table) + sizeof(uint32_t)];
+        default:
+            return nullptr;
+        }
+    }
+    const uint8_t* cget(const ids& id) const
+    {
+        const Table* table = cgetTable();
+        const uint8_t* ptr = cto();
+        switch (id)
+        {
+        case ids::b:
+        case ids::m:
+        case ids::v:
+            return &ptr[caddress(id, table) + sizeof(uint32_t)];
         default:
             return nullptr;
         }
@@ -998,19 +1179,19 @@ public:
         default: return types::unknown;
         }
     }
-    uint32_t size(const ids& id)
+    uint32_t size(const ids& id) const
     {
-        uint8_t* ptr = m_from ? const_cast<uint8_t*>(m_from) : &m_buffer->data()[0];
+        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];
         Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);
-        const uint32_t offset = address(id, table);
+        const uint32_t offset = caddress(id, table);
         return *reinterpret_cast<uint32_t*>(&ptr[offset]);
     }
 
-    bool has_b()
+    bool has_b() const
     {
         return has(ids::b) != 0;
     }
-    uint32_t size_b()
+    uint32_t size_b() const
     {
         return size(ids::b);
     }
@@ -1023,11 +1204,11 @@ public:
         set(ids::b, data, numberOfBytes);
     }
 
-    bool has_m()
+    bool has_m() const
     {
         return has(ids::m) != 0;
     }
-    uint32_t size_m()
+    uint32_t size_m() const
     {
         return size(ids::m) / sizeof(int16_t);
     }
@@ -1035,9 +1216,9 @@ public:
     {
         return reinterpret_cast<int16_t*>(get(ids::m));
     }
-    const int16_t& get_m(const uint32_t index)
+    const int16_t& get_m(const uint32_t index) const
     {
-        const int16_t* ptr = reinterpret_cast<int16_t*>(get(ids::m));
+        const int16_t* ptr = reinterpret_cast<const int16_t*>(cget(ids::m));
         if (!ptr)
             throw std::logic_error("Nullptr");
         return ptr[index];
@@ -1054,11 +1235,11 @@ public:
         _inner_::copybybytes(&element, &ptr[index], sizeof(int16_t));
     }
 
-    bool has_v()
+    bool has_v() const
     {
         return has(ids::v) != 0;
     }
-    uint32_t size_v()
+    uint32_t size_v() const
     {
         return size(ids::v) / sizeof(Vec3f::Table);
     }
@@ -1093,6 +1274,30 @@ public:
         h->signature1  = 'b';
         m_table = sizeof(_inner_::header);
     }
+    bool from(uint8_t* ptr)
+    {
+        if (!ptr)
+            return false;
+        const _inner_::header* h = reinterpret_cast<const _inner_::header*>(ptr);
+        if (h->signature0 != 'i' ||
+            h->signature1 != 'b')
+            return false;
+        m_buffer.reset();
+        m_from = ptr;
+        if (getTable()->__v)
+        {
+            const uint32_t number = size(ids::v) / sizeof(Vec3f::Table);
+            custom.v.reserve(number);
+            for (uint32_t i = 0; i < number; ++i)
+            {
+                custom.v.emplace_back();
+                custom.v.back().from(ptr);
+                auto table = reinterpret_cast<const Vec3f::Table*>(ptr + getTable()->__v + sizeof(uint32_t) + sizeof(Vec3f::Table) * i);
+                custom.v.back().m_table = reinterpret_cast<const uint8_t*>(table) - ptr;
+            }
+        }
+        return true;
+    }
     bool from(const uint8_t* ptr)
     {
         if (!ptr)
@@ -1103,7 +1308,7 @@ public:
             return false;
         if (!m_buffer->empty())
             m_buffer->clear();
-        m_from = ptr;
+        m_from = const_cast<uint8_t*>(ptr);
         if (getTable()->__v)
         {
             const uint32_t number = size(ids::v) / sizeof(Vec3f::Table);
@@ -1122,6 +1327,13 @@ public:
     {
         if (m_from)
             return const_cast<uint8_t*>(m_from);
+        else
+            return m_buffer->data();
+    }
+    const uint8_t* cto() const
+    {
+        if (m_from)
+            return m_from;
         else
             return m_buffer->data();
     }
@@ -1147,6 +1359,10 @@ private:
     {
         return reinterpret_cast<Table*>(&to()[m_table]);
     }
+    const Table* cgetTable() const
+    {
+        return reinterpret_cast<const Table*>(&cto()[m_table]);
+    }
     uint32_t insert(const uint32_t size)
     {
         if (m_from)
@@ -1168,13 +1384,23 @@ private:
         default: return _inner_::zero;
         }
     }
+    uint32_t caddress(const ids& id, const Table* table) const
+    {
+        switch (id)
+        {
+        case ids::b: return table->__b;
+        case ids::m: return table->__m;
+        case ids::v: return table->__v;
+        default: return _inner_::zero;
+        }
+    }
 
     struct
     {
         std::vector<Vec3f> v;
     } custom;
 
-    const uint8_t* m_from = nullptr;
+    uint8_t* m_from = nullptr;
     std::shared_ptr<std::vector<uint8_t>> m_buffer;
     uint32_t m_table = 0;
 };
@@ -1186,7 +1412,11 @@ public:
     {
         create(reserve);
     }
-    Complex(uint8_t *from_)
+    Complex(uint8_t* from_)
+    {
+        this->from(from_);
+    }
+    Complex(const uint8_t* from_)
     {
         this->from(from_);
     }
@@ -1214,14 +1444,24 @@ public:
         unknown
     };
 
-    uint32_t has(const ids& id)
+    uint32_t has(const ids& id) const
     {
-        return address(id, getTable());
+        return caddress(id, cgetTable());
     }
     uint8_t* get(const ids& id)
     {
         Table* table = getTable();
         uint8_t* ptr = to();
+        switch (id)
+        {
+        default:
+            return nullptr;
+        }
+    }
+    const uint8_t* cget(const ids& id) const
+    {
+        const Table* table = cgetTable();
+        const uint8_t* ptr = cto();
         switch (id)
         {
         default:
@@ -1243,11 +1483,11 @@ public:
         default: return types::unknown;
         }
     }
-    uint32_t size(const ids& id)
+    uint32_t size(const ids& id) const
     {
-        uint8_t* ptr = m_from ? const_cast<uint8_t*>(m_from) : &m_buffer->data()[0];
+        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];
         Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);
-        const uint32_t offset = address(id, table);
+        const uint32_t offset = caddress(id, table);
         return *reinterpret_cast<uint32_t*>(&ptr[offset]);
     }
 
@@ -1262,6 +1502,18 @@ public:
         h->signature1  = 'b';
         m_table = sizeof(_inner_::header);
     }
+    bool from(uint8_t* ptr)
+    {
+        if (!ptr)
+            return false;
+        const _inner_::header* h = reinterpret_cast<const _inner_::header*>(ptr);
+        if (h->signature0 != 'i' ||
+            h->signature1 != 'b')
+            return false;
+        m_buffer.reset();
+        m_from = ptr;
+        return true;
+    }
     bool from(const uint8_t* ptr)
     {
         if (!ptr)
@@ -1272,13 +1524,20 @@ public:
             return false;
         if (!m_buffer->empty())
             m_buffer->clear();
-        m_from = ptr;
+        m_from = const_cast<uint8_t*>(ptr);
         return true;
     }
     uint8_t* to()
     {
         if (m_from)
             return const_cast<uint8_t*>(m_from);
+        else
+            return m_buffer->data();
+    }
+    const uint8_t* cto() const
+    {
+        if (m_from)
+            return m_from;
         else
             return m_buffer->data();
     }
@@ -1301,6 +1560,10 @@ private:
     {
         return reinterpret_cast<Table*>(&to()[m_table]);
     }
+    const Table* cgetTable() const
+    {
+        return reinterpret_cast<const Table*>(&cto()[m_table]);
+    }
     uint32_t insert(const uint32_t size)
     {
         if (m_from)
@@ -1319,8 +1582,15 @@ private:
         default: return _inner_::zero;
         }
     }
+    uint32_t caddress(const ids& id, const Table* table) const
+    {
+        switch (id)
+        {
+        default: return _inner_::zero;
+        }
+    }
 
-    const uint8_t* m_from = nullptr;
+    uint8_t* m_from = nullptr;
     std::shared_ptr<std::vector<uint8_t>> m_buffer;
     uint32_t m_table = 0;
 };
