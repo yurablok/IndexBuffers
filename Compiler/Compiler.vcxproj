@@ -152,12 +152,14 @@
     <ClInclude Include="clara.hpp" />
     <ClInclude Include="colored_cout.h" />
     <ClInclude Include="inbcompiler.h" />
+    <ClInclude Include="MurmurHash3.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="inbcompiler.cpp" />
     <ClCompile Include="inbcpp.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="MurmurHash3.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

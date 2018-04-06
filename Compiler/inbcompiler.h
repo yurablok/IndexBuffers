@@ -84,6 +84,7 @@ private:
     void parseEnum(tokens_it &it);
     void parseStruct(tokens_it &it);
     bool next(tokens_it &it) const;
+    void calcSchemaHash();
     void genCPP(const std::string &out);
 
     tokens_t m_tokens;
@@ -122,7 +123,7 @@ private:
     //                              uint32_t>;
     //std::vector<std::pair<std::string, StructDescr>> m_structs;
 
-
+    uint32_t m_schemaHash = 0;
     bool m_detailed = false;
 };
 

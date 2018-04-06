@@ -19,4 +19,6 @@
 #   include <wincon.h>
 #endif
 
+#include "MurmurHash3.h"
+
 #endif // STDAFX_H

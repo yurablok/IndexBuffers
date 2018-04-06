@@ -9,11 +9,13 @@ CONFIG -= qt
 SOURCES += stdafx.cpp \
            main.cpp \
            inbcompiler.cpp \
-    inbcpp.cpp
+    inbcpp.cpp \
+    MurmurHash3.cpp
 
 HEADERS += stdafx.h \
            clara.hpp \
-           inbcompiler.h
+           inbcompiler.h \
+    MurmurHash3.h
 
 PRECOMPILED_HEADER = stable.h
 

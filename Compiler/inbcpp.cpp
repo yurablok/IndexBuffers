@@ -126,6 +126,8 @@ void INBCompiler::genCPP(const std::string &out)
     {
         const uint32_t optionalCount = st.optionalCount;
         const uint32_t staticCount = st.fields.size() - optionalCount;
+        const uint32_t nameHash = MurmurHash3_x86_32(st.name.data(), st.name.size(), m_schemaHash);
+        const uint16_t classId = (nameHash >> 16) ^ (nameHash & 0xffff);
         uint32_t builtInCount = 0;
         file << "class " << st.name << std::endl;
         file << "{" << std::endl;
@@ -530,6 +532,7 @@ void INBCompiler::genCPP(const std::string &out)
         file << "        _inner_::header *h = reinterpret_cast<_inner_::header*>(&m_buffer->data()[0]);" << std::endl;
         file << "        h->signature0  = 'i';" << std::endl;
         file << "        h->signature1  = 'b';" << std::endl;
+        file << "        h->type = " << std::to_string(classId) << ";" << std::endl;
         file << "        m_table = sizeof(_inner_::header);" << std::endl;
         file << "    }" << std::endl;
         file << "    bool from(uint8_t* ptr)" << std::endl;
@@ -538,7 +541,8 @@ void INBCompiler::genCPP(const std::string &out)
         file << "            return false;" << std::endl;
         file << "        const _inner_::header* h = reinterpret_cast<const _inner_::header*>(ptr);" << std::endl;
         file << "        if (h->signature0 != 'i' ||" << std::endl;
-        file << "            h->signature1 != 'b')" << std::endl;
+        file << "            h->signature1 != 'b' ||" << std::endl;
+        file << "            h->type != " << std::to_string(classId) << ")" << std::endl;
         file << "            return false;" << std::endl;
         file << "        m_buffer.reset();" << std::endl;
         file << "        m_from = ptr;" << std::endl;
@@ -572,7 +576,8 @@ void INBCompiler::genCPP(const std::string &out)
         file << "            return false;" << std::endl;
         file << "        const _inner_::header* h = reinterpret_cast<const _inner_::header*>(ptr);" << std::endl;
         file << "        if (h->signature0 != 'i' ||" << std::endl;
-        file << "            h->signature1 != 'b')" << std::endl;
+        file << "            h->signature1 != 'b' ||" << std::endl;
+        file << "            h->type != " << std::to_string(classId) << ")" << std::endl;
         file << "            return false;" << std::endl;
         file << "        m_buffer.reset();" << std::endl;
         file << "        m_from = const_cast<uint8_t*>(ptr);" << std::endl;

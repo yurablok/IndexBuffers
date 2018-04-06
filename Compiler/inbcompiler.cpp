@@ -116,6 +116,7 @@ void INBCompiler::read(const std::string &input, const bool detailed)
     //    std::cout << *it << ' ';
     //std::cout << std::endl;
     parse();
+    calcSchemaHash();
 }
 
 void INBCompiler::write(const std::string &output, const Language &lang)
@@ -433,4 +434,32 @@ bool INBCompiler::next(tokens_it &it) const
         return false;
     ++it;
     return true;
+}
+
+void INBCompiler::calcSchemaHash()
+{
+    uint32_t mm3 = 0;
+    for (const auto &ns : m_namespaces) {
+        mm3 = MurmurHash3_x86_32(ns.data(), ns.size(), mm3);
+    }
+    //for (const auto &ct : m_constants) {
+    //}
+    for (const auto &en : m_enums) {
+        mm3 = MurmurHash3_x86_32(en.first.data(), en.first.size(), mm3);
+        for (const auto &f : en.second) {
+            mm3 = MurmurHash3_x86_32(f.first.data(), f.first.size(), mm3);
+            mm3 = MurmurHash3_x86_32(&f.second, sizeof(f.second), mm3);
+        }
+    }
+    for (const auto &st : m_structs) {
+        mm3 = MurmurHash3_x86_32(st.name.data(), st.name.size(), mm3);
+        for (const auto &f : st.fields) {
+            mm3 = MurmurHash3_x86_32(f.name.data(), f.name.size(), mm3);
+            mm3 = MurmurHash3_x86_32(f.type.data(), f.type.size(), mm3);
+            mm3 = MurmurHash3_x86_32(&f.isArray, sizeof(f.isArray), mm3);
+            mm3 = MurmurHash3_x86_32(&f.isBuiltIn, sizeof(f.isBuiltIn), mm3);
+            mm3 = MurmurHash3_x86_32(&f.isOptional, sizeof(f.isOptional), mm3);
+        }
+    }
+    m_schemaHash = mm3; //(mm3 << 16) ^ (mm3 & 0xffff);
 }
