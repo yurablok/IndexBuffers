@@ -19,7 +19,7 @@ int main(int argc, char **argv)
         | clara::Opt(outputName, "input")
             ["-o"]["--output"]
             ("Specifies output generated C++ header")
-        | clara::Opt(detailed, "detailed")
+        | clara::Opt(detailed)
             ["-d"]["--detailed"]
             ("Print parsed info");
         //| clara::Help(help);
