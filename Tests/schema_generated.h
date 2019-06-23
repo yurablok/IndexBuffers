@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <memory>
+#include <exception>
 
 namespace ExtNS
 {

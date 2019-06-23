@@ -1,52 +1,47 @@
-namespace ExtNS.IntNS
+include "..\Tests\schema.ibs"
+include "../Tests/additional.ibs" // Имеет namespace AdditionalNS
+namespace ExtNS::IntNS
 
-enum Color
-{
-    RED
-    GREEN = 3
-    BLUE
+enum Color: uint8 {
+    RED       // 0
+    GREEN = 3 // 3
+    BLUE      // 4
 }
 
-struct OnlyStatic
-{
-    a : int8
-    b : uint16
-    c : int32
-    d : uint64
-    e : float32
-    f : float64
+struct ScalarTypes: crc32 {
+    int8            a
+    uint16          b
+    optional int32  c  
+    optional uint64 d
+    float32         e
+    float64         f
 }
 
-struct OnlyOptional
+struct Vec3f: no_header
 {
-    a : int8    optional
-    b : uint16  optional
-    c : int32   optional
-    d : uint64  optional
-    e : float32 optional
-    f : float64 optional
+    float32 x = 0 // При указании значения по-умолчанию, "optional" запрещён
+    float32 y = 0
+    float32 z = 0
 }
 
-struct Vec3f
-{
-    x : float32
-    y : float32
-    z : float32
+const uint32 fixedSize = 16 // Только атомарные типы, включая enum
+
+struct Arrays {
+    optional uint8 f[16] // Массив фиксированного размера
+    bytes          b[fixedSize] // Массив байт фиксированного размера
+    // Массивы динамического размера всегда являются "optional"
+    int16          m[] // Массив целых чисел динамического размера
+    Vec3f          v[] // Массив структур динамического размера
 }
 
-struct Arrays
-{
-    b : bytes
-    m : int16[]
-    v : Vec3f[]
+union Variant {
+    Color color // Внутри "union", "optional" и значение по-умолчанию запрещёны
+    Arrays data
 }
 
-struct Complex
-{
-//    vUint32 : uint32
-//    vBytes  : bytes optional
-//    vUint8  : uint8 optional
-//    point2f : Vec2f optional
-//    point3i : Vec3i
-//    vArray  : int64[]
+struct AnotherOne {
+    optional Variant        variant
+    Color                   colorChannels[Color.count] // Также есть ".min", ".max"
+    Color                   colorMask = Color::BLUE
+    AdditionalNS::SomeType  someData      // Из файла "additional.ibs"
 }

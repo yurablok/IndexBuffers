@@ -3,7 +3,7 @@
  *** **************************************** ***/
 namespace ExtNS.IntNS
 
-enum Color
+enum Color : uint8
 {
     RED
     GREEN = 3
@@ -16,7 +16,8 @@ struct Vec2f
     y : float32
 }
 
-struct Packet
+struct Packet :
+    crc32
 {
     id      : uint64 // comment
     vBytes  : bytes // always optional

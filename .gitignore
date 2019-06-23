@@ -1,0 +1,11 @@
+﻿/.vs
+*.vcxproj.user
+/Compiler/Debug
+/Compiler/Release
+/Compiler/x64
+/Tests/Debug
+/Tests/Release
+/Tests/x64
+/Debug
+/Release
+/x64

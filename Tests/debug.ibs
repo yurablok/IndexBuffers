@@ -1,0 +1,13 @@
+namespace DebugNS
+
+enum DebugEnum {
+    value1
+    value2
+}
+
+const uint32 debugConst = 888
+const int32 debugNegConst = -888
+
+struct DebugStruct {
+    uint32 field1
+}
