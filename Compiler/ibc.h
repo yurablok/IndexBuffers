@@ -1,14 +1,11 @@
 #pragma once
 #include "stdafx.h"
-#include "colored_cout.h"
 
 #include "ast_meta.h"
 
 class INBCompiler {
 public:
     INBCompiler();
-
-    static std::string version();
 
     void read(const std::string& input, const bool detailed = false);
     void write(const std::string& outputSuffix, const Language& lang);

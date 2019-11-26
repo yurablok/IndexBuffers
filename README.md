@@ -24,13 +24,15 @@ TODO
 
 ## <a name="rus_main_features"></a> Основные возможности
 
-* Опциональные поля
-* Минимум файлов с кодом (по одному на схему)
-* Минимум выделений памяти (TODO)
-* Пакеты готовы к использованию в любой момент (TODO: без crc32?)
+* Собственный C-подобный язык описания схемы.
+* Минимум файлов с кодом - по одному на схему.
+* Минимум выделений памяти - можно использовать заренее выделенную память или
+  использовать единственный для пакета внутренний буфер на `std::vector`.
+* Пакеты готовы к использованию в любой момент (TODO: без crc32?, `crc32` или `mmr3`
+  расчитываются при вызове `to`).
 * TODO
-* TODO: getMinimumSize(), getMaximumSize()
 * TODO: Проверить возможность использования в Embedded.
+* Опциональные поля, пространства имён, .
 
 ## <a name="rus_schema_format"></a> Формат описания структуры данных
 
@@ -38,13 +40,13 @@ TODO
 ```rust
 //File: "cheat_sheet.ibs"
 
-include "additional.ibs" // Имеет namespace AdditionalNS
+include "../Tests/additional.ibs" // Имеет namespace AdditionalNS
 namespace ExtNS::IntNS
 
 enum Color: uint8 {
-    RED        // 0
-    GREEN = 3  // 3
-    BLUE       // 4
+    RED       // 0
+    GREEN = 3 // 3
+    BLUE      // 4
 }
 
 struct ScalarTypes: crc32 {
@@ -63,27 +65,28 @@ struct Vec3f: no_header
     float32 z = 0
 }
 
-const uint32 fixedSize = 16 // Только атомарные типы
+const uint32 fixedSize = 16 // Только атомарные типы, включая enum
 
 struct Arrays {
-    optional uint8[16] f  // Массив фиксированного размера
-    bytes[fixedSize]   b  // Массив байт фиксированного размера
+    optional uint8 f[16] // Массив фиксированного размера
+    bytes          b[fixedSize] // Массив байт фиксированного размера
     // Массивы динамического размера всегда являются "optional"
-    int16[] m  // Массив целых чисел динамического размера
-    Vec3f[] v  // Массив структур динамического размера
+    int16          m[] // Массив целых чисел динамического размера
+    Vec3f          v[] // Массив структур динамического размера
 }
 
 union Variant {
-    Color color // Внутри "union", "optional" и значение по-умолчанию запрещёны
+    Color color // Внутри "union", "optional" и значение по-умолчанию запрещены
     Arrays data
 }
 
 struct AnotherOne {
     optional Variant        variant
-    Color[Color.count]      colorChannels // Также есть ".min", ".max"
-    Color                   color = Color::BLUE
+    Color                   colorChannels[Color.count] // Также есть ".min", ".max"
+    Color                   colorMask = Color::BLUE
     AdditionalNS::SomeType  someData      // Из файла "additional.ibs"
 }
+
 ```
 
 ## <a name="rus_internal_format"></a> Описание внутреннего формата данных IndexBuffers
@@ -92,5 +95,7 @@ TODO
 
 ## <a name="rus_benchmarks"></a> Сравнение производительности и расхода памяти
 
-TODO: сравнение с [Protocol Buffers](https://github.com/protocolbuffers/protobuf),
-[FlatBuffers](https://github.com/google/flatbuffers)
+TODO: сравнение с
+[Protocol Buffers](https://github.com/protocolbuffers/protobuf),
+[FlatBuffers](https://github.com/google/flatbuffers),
+[Cap'n Proto](https://github.com/capnproto/capnproto)

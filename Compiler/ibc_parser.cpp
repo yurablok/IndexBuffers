@@ -913,6 +913,12 @@ bool INBCompiler::parseInclude(AST::ParsingMeta& meta, tokens_it& it) {
         includeMeta.path = includePath;
         m_ast.filesMeta.emplace_back();
         m_ast.filesMeta.back().name = includeMeta.path;
+        meta.fileMeta->includes.push_back(includeMeta.path);
+        for (char& c : meta.fileMeta->includes.back()) {
+            if (c == '\\') {
+                c = '/';
+            }
+        }
         includeMeta.fileMeta = &m_ast.filesMeta.back();
         if (!parse(includeMeta)) {
             return false;
@@ -971,7 +977,6 @@ bool INBCompiler::parseNamespace(AST::ParsingMeta& meta, tokens_it& it) {
         }
     }
     printErrorCustom(meta, it, "Too many namespace levels (>100).");
-    //TODO: ?? next2(path, lines, it, tokens, false);
     return false;
 }
 
@@ -1028,6 +1033,7 @@ bool INBCompiler::parseConst(AST::ParsingMeta& meta, tokens_it& it) {
     kw resultKw = kw::UNDEFINED;
     uint32_t resultIdx = 0;
     if (parseValue(meta, it, constType, constMeta->valueStr, true)) {
+        constMeta->valueKw = constType;
     }
     else if (findValue(meta, it, resultObjectMeta, resultKw, resultIdx)) {
         switch (resultKw) {
@@ -1441,6 +1447,8 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
         std::cout << std::endl;
     }
     uint32_t errorsCount = 0;
+    std::unique_ptr<AST::ObjectMeta> objectMeta = std::make_unique<AST::ObjectMeta>(
+        meta.path, itAtStructName->line, itAtStructName->pos);
     while (true) {
         if (it == meta.tokens.end()) {
             return false;
@@ -1450,12 +1458,13 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
             break;
         }
         ++errorsCount;
-        std::unique_ptr<AST::StructFieldMeta> fieldPtr = std::make_unique<AST::StructFieldMeta>();
-        AST::StructFieldMeta* field = fieldPtr.get();
+        std::unique_ptr<AST::FieldMeta> fieldPtr = std::make_unique<AST::FieldMeta>();
+        AST::FieldMeta* field = fieldPtr.get();
         kw keyword = kw::UNDEFINED;
         keyword = findKeyword(it->str);
         if (keyword == kw::Optional) {
             field->isOptional = true;
+            //field->isByOffset = true;
             auto itTemp = it;
             if (next(meta, it, true, true) != next_r('y', 'y')) {
                 it = itTemp;
@@ -1466,6 +1475,7 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
         }
         if (isBuiltInType(keyword)) {
             field->isBuiltIn = true;
+            field->isScalar = true;
             field->typeKw = keyword;
             auto itTemp = it;
             if (next(meta, it, true, true) != next_r('y', 'y')) {
@@ -1473,8 +1483,14 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
                 skipLine(meta, it);
                 continue;
             }
+            if (field->typeKw == kw::Bytes) {
+                field->isArray = true;
+                field->isOptional = true;
+                field->isScalar = false;
+            }
         }
         else {
+            //field->isByOffset = true;
             auto itTypeBegin = it;
             field->typePtr = findObject(meta, it);
             auto itTypeEnd = it;
@@ -1489,6 +1505,9 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
                 continue;
             }
             field->typeKw = field->typePtr->type();
+            if (field->typeKw == kw::Enum) {
+                field->isScalar = true;
+            }
         }
         field->name = it->str;
         if (!isNameCorrect(field->name)) {
@@ -1651,6 +1670,7 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
             }
             else if (it->str == "[") {
                 field->isArray = true;
+                //field->isByOffset = true;
                 //if (field->isOptional) {
                 //    printWarningCustom(meta, it, "Arrays are optional by default.");
                 //}
@@ -1663,6 +1683,7 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
                         skipLine(meta, it);
                         continue;
                     }
+                    field->isOptional = true;
                 }
                 else {
                     const tokens_it itAtValue = it;
@@ -1726,10 +1747,15 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
                             }
                         }
                     }
+                    //field->isArrayFixedSize = true;
+                    //field->isByOffset = false;
                     if (it->str != "]") {
                         printErrorWrongToken(meta, it, "]");
                         skipLine(meta, it);
                         continue;
+                    }
+                    if (field->typeKw == kw::Bytes) {
+                        field->isOptional = false;
                     }
                     if (next(meta, it, false) == next_r('y', 'y')) {
                         printErrorWrongToken(meta, it, "end of line");
@@ -1873,12 +1899,10 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
         m_parsingErrorsCount += errorsCount;
         return false;
     }
-    std::sort(structMeta->fieldsVec.begin(), structMeta->fieldsVec.end(),
-        [](const AST::StructFieldMeta* l, const AST::StructFieldMeta* r) {
-            return l->isOptional < r->isOptional;
-        });
-    std::unique_ptr<AST::ObjectMeta> objectMeta = std::make_unique<AST::ObjectMeta>(
-        meta.path, itAtStructName->line, itAtStructName->pos);
+    //std::sort(structMeta->fieldsVec.begin(), structMeta->fieldsVec.end(),
+    //    [](const AST::FieldMeta* l, const AST::FieldMeta* r) {
+    //        return l->isOptional < r->isOptional;
+    //    });
     objectMeta->putStructMeta(std::move(structMeta));
     m_ast.insertObject(meta, itAtStructName->str, std::move(objectMeta));
     return true;
@@ -1939,18 +1963,24 @@ bool INBCompiler::parseUnion(AST::ParsingMeta& meta, tokens_it& it) {
             break;
         }
         ++errorsCount;
-        std::unique_ptr<AST::UnionFieldMeta> fieldPtr = std::make_unique<AST::UnionFieldMeta>();
-        AST::UnionFieldMeta* field = fieldPtr.get();
+        std::unique_ptr<AST::FieldMeta> fieldPtr = std::make_unique<AST::FieldMeta>();
+        AST::FieldMeta* field = fieldPtr.get();
         kw keyword = kw::UNDEFINED;
         keyword = findKeyword(it->str);
         if (isBuiltInType(keyword)) {
             field->isBuiltIn = true;
+            field->isScalar = true;
             field->typeKw = keyword;
             auto itTemp = it;
             if (next(meta, it, true, true) != next_r('y', 'y')) {
                 it = itTemp;
                 skipLine(meta, it);
                 continue;
+            }
+            if (field->typeKw == kw::Bytes) {
+                field->isArray = true;
+                field->isOptional = true;
+                field->isScalar = false;
             }
         }
         else {
@@ -1968,6 +1998,9 @@ bool INBCompiler::parseUnion(AST::ParsingMeta& meta, tokens_it& it) {
                 continue;
             }
             field->typeKw = field->typePtr->type();
+            if (field->typeKw == kw::Enum) {
+                field->isScalar = true;
+            }
         }
         field->name = it->str;
         if (!isNameCorrect(field->name)) {
@@ -1981,13 +2014,107 @@ bool INBCompiler::parseUnion(AST::ParsingMeta& meta, tokens_it& it) {
             continue;
         }
 
-        //unionMeta->fieldsVec.push_back(field);
+        unionMeta->fieldsVec.push_back(field);
         unionMeta->fieldsMap[field->name] = std::move(fieldPtr);
 
         if (next(meta, it, true) == next_r('y', 'y')) {
-            printErrorWrongToken(meta, it, "end of line");
-            skipLine(meta, it);
-            continue;
+            if (it->str == "[") {
+                field->isArray = true;
+                if (next(meta, it, true, true) != next_r('y', 'y')) { // <[> <?>
+                    continue;
+                }
+                if (it->str == "]") {
+                    if (next(meta, it, false) == next_r('y', 'y')) {
+                        printErrorWrongToken(meta, it, "end of line");
+                        skipLine(meta, it);
+                        continue;
+                    }
+                    field->isOptional = true;
+                }
+                else {
+                    const tokens_it itAtValue = it;
+                    const AST::ObjectMeta* arrayPtr = nullptr;
+                    kw arrayKw = kw::UNDEFINED;
+                    uint32_t arrayIdx = 0;
+                    std::string arrayStr;
+                    if (parseValue(meta, it, kw::UInt64, arrayStr, true)) {
+                        field->arraySize = std::stoull(arrayStr);
+                        field->arrayKw = kw::UInt64;
+                    }
+                    else {
+                        it = itAtValue;
+                        arrayPtr = findObject(meta, it);
+                        if (arrayPtr) {
+                            switch (arrayPtr->type()) {
+                            case kw::Const:
+                                if (arrayPtr->constMeta()->type != kw::UInt8
+                                    && arrayPtr->constMeta()->type != kw::UInt16
+                                    && arrayPtr->constMeta()->type != kw::UInt32
+                                    && arrayPtr->constMeta()->type != kw::UInt64) {
+                                    printErrorCustom(meta, itAtValue, "Must be an unsigned integer.");
+                                    it = itAtValue;
+                                    skipLine(meta, it);
+                                    continue;
+                                }
+                                field->arrayKw = kw::Const;
+                                field->arrayPtr = arrayPtr;
+                                break;
+                            default:
+                                printErrorCustom(meta, itAtValue, "Must be an unsigned integer.");
+                                it = itAtValue;
+                                skipLine(meta, it);
+                                continue;
+                            }
+                        }
+                        else {
+                            it = itAtValue;
+                            if (findValue(meta, it, arrayPtr, arrayKw, arrayIdx)) {
+                                switch (arrayKw) {
+                                case kw::Enum:
+                                case kw::Min:
+                                case kw::Max:
+                                case kw::Count:
+                                    field->arrayKw = arrayKw;
+                                    field->arrayPtr = arrayPtr;
+                                    field->arrayIdx = arrayIdx;
+                                    break;
+                                default:
+                                    printErrorCustom(meta, itAtValue, "Must be an unsigned integer.");
+                                    it = itAtValue;
+                                    skipLine(meta, it);
+                                    continue;
+                                }
+                            }
+                            else {
+                                printErrorCustom(meta, itAtValue, "Must be an unsigned integer.");
+                                it = itAtValue;
+                                skipLine(meta, it);
+                                continue;
+                            }
+                        }
+                    }
+                    //field->isArrayFixedSize = true;
+                    //field->isByOffset = false;
+                    if (it->str != "]") {
+                        printErrorWrongToken(meta, it, "]");
+                        skipLine(meta, it);
+                        continue;
+                    }
+                    if (field->typeKw == kw::Bytes) {
+                        field->isOptional = false;
+                    }
+                    if (next(meta, it, false) == next_r('y', 'y')) {
+                        printErrorWrongToken(meta, it, "end of line");
+                        skipLine(meta, it);
+                        continue;
+                    }
+                }
+            }
+            else {
+                printErrorWrongToken(meta, it, "'[' or 'end of line'");
+                skipLine(meta, it);
+                continue;
+            }
         }
 
         if (m_detailed) {

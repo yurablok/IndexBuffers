@@ -11,7 +11,7 @@ enum Color: uint8 {
 struct ScalarTypes: crc32 {
     int8            a
     uint16          b
-    optional int32  c  
+    optional int32  c
     optional uint64 d
     float32         e
     float64         f
@@ -35,13 +35,15 @@ struct Arrays {
 }
 
 union Variant {
-    Color color // Внутри "union", "optional" и значение по-умолчанию запрещёны
+    Color  color // Внутри "union", "optional" и значение по-умолчанию запрещены
     Arrays data
+    int64  arr[]
 }
 
 struct AnotherOne {
+    bytes                   string // bytes всегда массив
     optional Variant        variant
     Color                   colorChannels[Color.count] // Также есть ".min", ".max"
     Color                   colorMask = Color::BLUE
-    AdditionalNS::SomeType  someData      // Из файла "additional.ibs"
+    AdditionalNS::SomeType  someData // Из файла "additional.ibs"
 }

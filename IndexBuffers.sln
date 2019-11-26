@@ -9,9 +9,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Tests", "Tests\Tests.vcxpro
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Other", "Other", "{E9C703D7-7DD4-4F6D-9A0F-FC75CF1ACEAA}"
 	ProjectSection(SolutionItems) = preProject
+		Compiler\Compiler.pro = Compiler\Compiler.pro
 		IndexBuffers.pro = IndexBuffers.pro
 		LICENSE = LICENSE
 		README.md = README.md
+		Tests\Tests.pro = Tests\Tests.pro
 		WhitePaper.h = WhitePaper.h
 	EndProjectSection
 EndProject

@@ -27,11 +27,6 @@ INBCompiler::INBCompiler() {
     //test_next();
 }
 
-std::string INBCompiler::version()
-{
-    return "0.3-alpha";
-}
-
 void INBCompiler::read(const std::string& input, const bool detailed) {
     std::cout << "INPUT: " << input << std::endl;
     m_detailed = detailed;

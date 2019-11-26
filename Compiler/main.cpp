@@ -2,7 +2,7 @@
 #include "clara.hpp"
 
 #include "ibc.h"
-
+#include "version.h"
 
 int main(int argc, char **argv) {
     std::string inputName;
@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
         return 0;
     }
     if (printVersion) {
-        std::cout << "IndexBuffers Compiler " << INBCompiler::version() << std::endl;
+        std::cout << "IndexBuffers Compiler " << g_version << std::endl;
     }
     if (inputName.empty()) {
         std::cout << "The argument -i is required!" << std::endl;
