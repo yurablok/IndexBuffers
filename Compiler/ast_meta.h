@@ -34,44 +34,52 @@ enum class kw {
     Float32,
     Float64,
     Bytes,
+    // Reserved
+    ToString,
+    FromString,
+    At
 };
 static const std::map<std::string, kw> keyword_to_kw = {
-    { "include"  ,  kw::Include     },
-    { "namespace",  kw::Namespace   },
-    { "enum"     ,  kw::Enum        },
-    { "struct"   ,  kw::Struct      },
-    { "const"    ,  kw::Const       },
-    { "union"    ,  kw::Union       },
+    { "include"     ,  kw::Include     },
+    { "namespace"   ,  kw::Namespace   },
+    { "enum"        ,  kw::Enum        },
+    { "struct"      ,  kw::Struct      },
+    { "const"       ,  kw::Const       },
+    { "union"       ,  kw::Union       },
 
-    { "crc32"    ,  kw::CRC32       },
-    { "mmh3"     ,  kw::MurMur3     },
-    { "optional" ,  kw::Optional    },
-    { "no_header",  kw::NoHeader    },
+    { "crc32"       ,  kw::CRC32       },
+    { "mmh3"        ,  kw::MurMur3     },
+    { "optional"    ,  kw::Optional    },
+    { "no_header"   ,  kw::NoHeader    },
 
-    { "count"    ,  kw::Count       },
-    { "min"      ,  kw::Min         },
-    { "max"      ,  kw::Max         },
+    { "count"       ,  kw::Count       },
+    { "min"         ,  kw::Min         },
+    { "max"         ,  kw::Max         },
 
-    { "int8"     ,  kw::Int8        },
-    { "uint8"    ,  kw::UInt8       },
-    { "int16"    ,  kw::Int16       },
-    { "uint16"   ,  kw::UInt16      },
-    { "int32"    ,  kw::Int32       },
-    { "uint32"   ,  kw::UInt32      },
-    { "int64"    ,  kw::Int64       },
-    { "uint64"   ,  kw::UInt64      },
-    { "float32"  ,  kw::Float32     },
-    { "float64"  ,  kw::Float64     },
-    { "bytes"    ,  kw::Bytes       }
+    { "int8"        ,  kw::Int8        },
+    { "int16"       ,  kw::Int16       },
+    { "int32"       ,  kw::Int32       },
+    { "int64"       ,  kw::Int64       },
+    { "uint8"       ,  kw::UInt8       },
+    { "uint16"      ,  kw::UInt16      },
+    { "uint32"      ,  kw::UInt32      },
+    { "uint64"      ,  kw::UInt64      },
+    { "float32"     ,  kw::Float32     },
+    { "float64"     ,  kw::Float64     },
+    { "bytes"       ,  kw::Bytes       },
+
+    { "to_string"   , kw::ToString     },
+    { "from_string" , kw::FromString   },
+    { "at"          , kw::At           }
 };
 static const char* kw_to_keyword[] = {
     "UNDEFINED",
     // Global space
     "include",
     "namespace",
+    "const",
     "enum",
     "struct",
-    "const",
     "union",
     // Local space
     "crc32",
@@ -84,16 +92,19 @@ static const char* kw_to_keyword[] = {
     "max",
     // Types
     "int8",
-    "uint8",
     "int16",
-    "uint16",
     "int32",
-    "uint32",
     "int64",
+    "uint8",
+    "uint16",
+    "uint32",
     "uint64",
     "float32",
     "float64",
-    "bytes"
+    "bytes",
+    // Reserved
+    "to_string",
+    "from_string"
 };
 static kw findKeyword(const std::string& keyword) {
     auto it = keyword_to_kw.find(keyword);
@@ -105,40 +116,57 @@ static kw findKeyword(const std::string& keyword) {
 static constexpr bool isBuiltInType(const kw& keyword) {
     switch (keyword) {
     case kw::Int8:
-    case kw::UInt8:
     case kw::Int16:
-    case kw::UInt16:
     case kw::Int32:
-    case kw::UInt32:
     case kw::Int64:
+    case kw::UInt8:
+    case kw::UInt16:
+    case kw::UInt32:
     case kw::UInt64:
     case kw::Float32:
     case kw::Float64:
     case kw::Bytes:
         return true;
     default:
-        return false;
+        break;
     }
     return false;
 }
 static constexpr bool isScalarType(const kw& keyword) {
     switch (keyword) {
     case kw::Int8:
-    case kw::UInt8:
     case kw::Int16:
-    case kw::UInt16:
     case kw::Int32:
-    case kw::UInt32:
     case kw::Int64:
+    case kw::UInt8:
+    case kw::UInt16:
+    case kw::UInt32:
     case kw::UInt64:
     case kw::Float32:
     case kw::Float64:
         return true;
     default:
-        return false;
+        break;
     }
     return false;
 }
+static constexpr uint8_t getScalarSize(const kw& keyword) {
+    switch (keyword) {
+    case kw::Int8: return sizeof(int8_t);
+    case kw::Int16: return sizeof(int16_t);
+    case kw::Int32: return sizeof(int32_t);
+    case kw::Int64: return sizeof(int64_t);
+    case kw::UInt8: return sizeof(uint8_t);
+    case kw::UInt16: return sizeof(uint16_t);
+    case kw::UInt32: return sizeof(uint32_t);
+    case kw::UInt64: return sizeof(uint64_t);
+    case kw::Float32: return sizeof(float);
+    case kw::Float64: return sizeof(double);
+    default: break;
+    }
+    return 0;
+}
+
 //static const std::string tokenOpenScope("{");
 //static const std::string tokenCloseScope("}");
 //static const std::string tokenOpenArray("[");
@@ -197,7 +225,8 @@ struct AST {
         std::unordered_map<std::string, uint32_t> valuesMap;
         kw type = kw::UNDEFINED;
     };
-    struct StructFieldMeta {
+    struct FieldMeta {
+        void calcSizeMinMax(uint64_t& min, uint64_t& max, const uint8_t offsetSize) const;
         const ObjectMeta* arrayPtr = nullptr;
         uint64_t arraySize = 0; // 0 - not fixed, >0 - fixed
         uint32_t arrayIdx = 0;
@@ -213,36 +242,27 @@ struct AST {
         uint32_t valueIdx = 0;
         kw valueKw = kw::UNDEFINED;
 
-        bool isBuiltIn = false;
         bool isOptional = false;
+        bool isBuiltIn = false;
+        // arrayKw == kw::UNDEFINED ? dynamic size : fixed size
         bool isArray = false;
+        bool isScalar = false;
     };
     struct StructMeta {
+        void calcSizeMinMax(uint64_t& min, uint64_t& max) const;
         std::string name;
-        std::set<std::string> friends;
-        std::deque<StructFieldMeta*> fieldsVec;
-        std::unordered_map<std::string, std::unique_ptr<StructFieldMeta>> fieldsMap;
+        //std::unordered_set<ObjectMeta*> friends;
+        std::deque<FieldMeta*> fieldsVec;
+        std::unordered_map<std::string, std::unique_ptr<FieldMeta>> fieldsMap;
         uint32_t optionalCount = 0;
         kw attribute = kw::UNDEFINED;
-    };
-    struct UnionFieldMeta {
-        const ObjectMeta* arrayPtr = nullptr;
-        uint64_t arraySize = 0; // 0 - not fixed, >0 - fixed
-        uint32_t arrayIdx = 0;
-        kw arrayKw = kw::UNDEFINED;
-
-        const ObjectMeta* typePtr = nullptr;
-        kw typeKw = kw::UNDEFINED;
-
-        std::string name;
-
-        bool isBuiltIn = false;
-        bool isArray = false;
+        kw offsetType = kw::UInt32;
     };
     struct UnionMeta {
         std::string name;
-        //std::deque<UnionFieldMeta*> fieldsVec;
-        std::unordered_map<std::string, std::unique_ptr<UnionFieldMeta>> fieldsMap;
+        std::deque<FieldMeta*> fieldsVec;
+        std::unordered_map<std::string, std::unique_ptr<FieldMeta>> fieldsMap;
+        kw offsetType = kw::UInt32;
     };
 
     struct TreeNode;
@@ -337,6 +357,7 @@ struct AST {
     TreeNode objectsTree;
     struct FileMeta {
         std::string name;
+        std::deque<std::string> includes;
         struct NamespaceMeta {
             std::deque<std::string> namespace_;
             std::deque<ObjectMeta*> objects;

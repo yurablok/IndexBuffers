@@ -91,3 +91,203 @@ void AST::calcSchemaHash() {
     // }
     // m_schemaHash = mm3; //(mm3 << 16) ^ (mm3 & 0xffff);
 }
+
+void AST::StructMeta::calcSizeMinMax(uint64_t& min, uint64_t& max) const {
+    uint8_t offsetSize = 0;
+    switch (offsetType) {
+    case kw::UInt8: offsetSize = sizeof(uint8_t); break;
+    case kw::UInt16: offsetSize = sizeof(uint16_t); break;
+    case kw::UInt32: offsetSize = sizeof(uint32_t); break;
+    case kw::UInt64: offsetSize = sizeof(uint64_t); break;
+    default: break;
+    }
+    for (const auto& field : fieldsVec) {
+        field->calcSizeMinMax(min, max, offsetSize);
+    }
+}
+
+void AST::FieldMeta::calcSizeMinMax(uint64_t& min, uint64_t& max,
+    const uint8_t offsetSize) const {
+
+    uint64_t arraySizeTemp = 0;
+    if (isArray) {
+        if (isScalarType(arrayKw)) {
+            arraySizeTemp = arraySize;
+        }
+        else switch (arrayKw) {
+        case kw::Const:
+            if (!arrayPtr->constMeta()->valueStr.empty()) {
+                arraySizeTemp = std::stoull(arrayPtr->constMeta()->valueStr);
+            }
+            else if (arrayPtr->constMeta()->valuePtr) {
+                switch (arrayPtr->constMeta()->valueKw) {
+                case kw::Const:
+                    std::cout << clr::red << "Error: Const of Const is not implemented yet!"
+                        << clr::reset << std::endl;
+                    arraySizeTemp = 0;
+                    break;
+                case kw::Enum:
+                    arraySizeTemp = arrayPtr->constMeta()->valuePtr->
+                        enumMeta()->valuesVec[
+                            arrayPtr->constMeta()->valueIdx].second;
+                    break;
+                case kw::Min:
+                    arraySizeTemp = arrayPtr->constMeta()->valuePtr->
+                        enumMeta()->valuesVec.front().second;
+                    break;
+                case kw::Max:
+                    arraySizeTemp = arrayPtr->constMeta()->valuePtr->
+                        enumMeta()->valuesVec.back().second;
+                    break;
+                case kw::Count:
+                    arraySizeTemp = arrayPtr->constMeta()->valuePtr->
+                        enumMeta()->valuesVec.size();
+                    break;
+                default:
+                    arraySizeTemp = 0; // warning?
+                    break;
+                }
+            }
+            break;
+        case kw::Enum:
+            arraySizeTemp = arrayPtr->enumMeta()->valuesVec[arrayIdx].second;
+            break;
+        case kw::Min:
+            arraySizeTemp = arrayPtr->enumMeta()->valuesVec.front().second;
+            break;
+        case kw::Max:
+            arraySizeTemp = arrayPtr->enumMeta()->valuesVec.back().second;
+            break;
+        case kw::Count:
+            arraySizeTemp = arrayPtr->enumMeta()->valuesVec.size();
+            break;
+        default:
+            arraySizeTemp = 0; // warning?
+            break;
+        }
+    }
+    // 0. fixed scalar               sizeof(type)
+    // 1. fixed struct               for fields
+    // 2. fixed array of scalars     sizeof(type) * size
+    // 3. fixed array of structs     struct.calc * size
+    // 4. optional scalar            sizeof(uint32_t) + {max}sizeof(type)
+    // 5. optional struct            sizeof(uint32_t) + {max}struct.calc
+    // 6. optional array of scalars  {min}sizeof(uint32_t) || {max}UINT64_MAX
+    // 7. optional array of structs  {min}sizeof(uint32_t) || {max}UINT64_MAX
+    if (typeKw == kw::Bytes) {
+        if (isOptional) { // 6
+            min += offsetSize;
+            max = UINT64_MAX;
+        }
+        else { // 2
+            min += sizeof(uint8_t) * arraySizeTemp;
+            if (max != UINT64_MAX) {
+                max += sizeof(uint8_t) * arraySizeTemp;
+            }
+        }
+    }
+    else if (isOptional) {
+        if (isArray) {
+            if (isScalar) { // 6
+                min += offsetSize;
+                max = UINT64_MAX;
+            }
+            else { // 7
+                min += offsetSize;
+                max = UINT64_MAX;
+            }
+        }
+        else {
+            if (isScalar) { // 4
+                min += offsetSize;
+                if (max != UINT64_MAX) {
+                    max += offsetSize;
+                    if (typeKw == kw::Enum) {
+                        max += getScalarSize(typePtr->enumMeta()->type);
+                    }
+                    else {
+                        max += getScalarSize(typeKw);
+                    }
+                }
+            }
+            else { // 5
+                min += offsetSize;
+                if (max != UINT64_MAX) {
+                    max += offsetSize;
+                }
+                switch (typeKw) {
+                case kw::Struct:
+                    typePtr->structMeta()->calcSizeMinMax(min, max);
+                    break;
+                case kw::Union:
+                    typePtr->structMeta()->calcSizeMinMax(min, max);
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+    }
+    else {
+        if (isArray) {
+            if (isScalar) { // 2
+                uint8_t scalarSize = 0;
+                if (typeKw == kw::Enum) {
+                    scalarSize = getScalarSize(typePtr->enumMeta()->type);
+                }
+                else {
+                    scalarSize = getScalarSize(typeKw);
+                }
+                min += scalarSize * arraySizeTemp;
+                if (max != UINT64_MAX) {
+                    max += scalarSize * arraySizeTemp;
+                }
+            }
+            else { // 3
+                uint64_t minTemp = 0;
+                uint64_t maxTemp = 0;
+                switch (typeKw) {
+                case kw::Struct:
+                    typePtr->structMeta()->calcSizeMinMax(minTemp, maxTemp);
+                    break;
+                case kw::Union:
+                    typePtr->structMeta()->calcSizeMinMax(minTemp, maxTemp);
+                    break;
+                default:
+                    break;
+                }
+                min += minTemp * arraySizeTemp;
+                if (max != UINT64_MAX && maxTemp != UINT64_MAX) {
+                    max += maxTemp * arraySizeTemp;
+                }
+            }
+        }
+        else {
+            if (isScalar) { // 0
+                uint8_t scalarSize = 0;
+                if (typeKw == kw::Enum) {
+                    scalarSize = getScalarSize(typePtr->enumMeta()->type);
+                }
+                else {
+                    scalarSize = getScalarSize(typeKw);
+                }
+                min += scalarSize;
+                if (max != UINT64_MAX) {
+                    max += scalarSize;
+                }
+            }
+            else { // 1
+                switch (typeKw) {
+                case kw::Struct:
+                    typePtr->structMeta()->calcSizeMinMax(min, max);
+                    break;
+                case kw::Union:
+                    typePtr->structMeta()->calcSizeMinMax(min, max);
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+    }
+}

@@ -38,13 +38,13 @@ TODO
 ```rust
 //File: "cheat_sheet.ibs"
 
-include "additional.ibs" // Имеет namespace AdditionalNS
+include "../Tests/additional.ibs" // Имеет namespace AdditionalNS
 namespace ExtNS::IntNS
 
 enum Color: uint8 {
-    RED        // 0
-    GREEN = 3  // 3
-    BLUE       // 4
+    RED       // 0
+    GREEN = 3 // 3
+    BLUE      // 4
 }
 
 struct ScalarTypes: crc32 {
@@ -63,27 +63,28 @@ struct Vec3f: no_header
     float32 z = 0
 }
 
-const uint32 fixedSize = 16 // Только атомарные типы
+const uint32 fixedSize = 16 // Только атомарные типы, включая enum
 
 struct Arrays {
-    optional uint8[16] f  // Массив фиксированного размера
-    bytes[fixedSize]   b  // Массив байт фиксированного размера
+    optional uint8 f[16] // Массив фиксированного размера
+    bytes          b[fixedSize] // Массив байт фиксированного размера
     // Массивы динамического размера всегда являются "optional"
-    int16[] m  // Массив целых чисел динамического размера
-    Vec3f[] v  // Массив структур динамического размера
+    int16          m[] // Массив целых чисел динамического размера
+    Vec3f          v[] // Массив структур динамического размера
 }
 
 union Variant {
-    Color color // Внутри "union", "optional" и значение по-умолчанию запрещёны
+    Color color // Внутри "union", "optional" и значение по-умолчанию запрещены
     Arrays data
 }
 
 struct AnotherOne {
     optional Variant        variant
-    Color[Color.count]      colorChannels // Также есть ".min", ".max"
-    Color                   color = Color::BLUE
+    Color                   colorChannels[Color.count] // Также есть ".min", ".max"
+    Color                   colorMask = Color::BLUE
     AdditionalNS::SomeType  someData      // Из файла "additional.ibs"
 }
+
 ```
 
 ## <a name="rus_internal_format"></a> Описание внутреннего формата данных IndexBuffers

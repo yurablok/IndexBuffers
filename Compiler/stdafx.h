@@ -29,3 +29,4 @@
 #endif
 
 #include "MurmurHash3.h"
+#include "colored_cout.h"

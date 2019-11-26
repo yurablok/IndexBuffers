@@ -913,6 +913,12 @@ bool INBCompiler::parseInclude(AST::ParsingMeta& meta, tokens_it& it) {
         includeMeta.path = includePath;
         m_ast.filesMeta.emplace_back();
         m_ast.filesMeta.back().name = includeMeta.path;
+        meta.fileMeta->includes.push_back(includeMeta.path);
+        for (char& c : meta.fileMeta->includes.back()) {
+            if (c == '\\') {
+                c = '/';
+            }
+        }
         includeMeta.fileMeta = &m_ast.filesMeta.back();
         if (!parse(includeMeta)) {
             return false;
@@ -1028,6 +1034,7 @@ bool INBCompiler::parseConst(AST::ParsingMeta& meta, tokens_it& it) {
     kw resultKw = kw::UNDEFINED;
     uint32_t resultIdx = 0;
     if (parseValue(meta, it, constType, constMeta->valueStr, true)) {
+        constMeta->valueKw = constType;
     }
     else if (findValue(meta, it, resultObjectMeta, resultKw, resultIdx)) {
         switch (resultKw) {
@@ -1441,6 +1448,8 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
         std::cout << std::endl;
     }
     uint32_t errorsCount = 0;
+    std::unique_ptr<AST::ObjectMeta> objectMeta = std::make_unique<AST::ObjectMeta>(
+        meta.path, itAtStructName->line, itAtStructName->pos);
     while (true) {
         if (it == meta.tokens.end()) {
             return false;
@@ -1450,12 +1459,13 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
             break;
         }
         ++errorsCount;
-        std::unique_ptr<AST::StructFieldMeta> fieldPtr = std::make_unique<AST::StructFieldMeta>();
-        AST::StructFieldMeta* field = fieldPtr.get();
+        std::unique_ptr<AST::FieldMeta> fieldPtr = std::make_unique<AST::FieldMeta>();
+        AST::FieldMeta* field = fieldPtr.get();
         kw keyword = kw::UNDEFINED;
         keyword = findKeyword(it->str);
         if (keyword == kw::Optional) {
             field->isOptional = true;
+            //field->isByOffset = true;
             auto itTemp = it;
             if (next(meta, it, true, true) != next_r('y', 'y')) {
                 it = itTemp;
@@ -1466,6 +1476,7 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
         }
         if (isBuiltInType(keyword)) {
             field->isBuiltIn = true;
+            field->isScalar = true;
             field->typeKw = keyword;
             auto itTemp = it;
             if (next(meta, it, true, true) != next_r('y', 'y')) {
@@ -1473,8 +1484,14 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
                 skipLine(meta, it);
                 continue;
             }
+            if (field->typeKw == kw::Bytes) {
+                field->isArray = true;
+                field->isOptional = true;
+                field->isScalar = false;
+            }
         }
         else {
+            //field->isByOffset = true;
             auto itTypeBegin = it;
             field->typePtr = findObject(meta, it);
             auto itTypeEnd = it;
@@ -1489,6 +1506,13 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
                 continue;
             }
             field->typeKw = field->typePtr->type();
+            if (field->typeKw == kw::Enum) {
+                field->isScalar = true;
+            }
+            //if (field->typeKw == kw::Struct && !field->isOptional) {
+            //    const_cast<AST::StructMeta*>(field->typePtr->structMeta())
+            //        ->friends.insert(objectMeta.get());
+            //}
         }
         field->name = it->str;
         if (!isNameCorrect(field->name)) {
@@ -1651,6 +1675,7 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
             }
             else if (it->str == "[") {
                 field->isArray = true;
+                //field->isByOffset = true;
                 //if (field->isOptional) {
                 //    printWarningCustom(meta, it, "Arrays are optional by default.");
                 //}
@@ -1663,6 +1688,7 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
                         skipLine(meta, it);
                         continue;
                     }
+                    field->isOptional = true;
                 }
                 else {
                     const tokens_it itAtValue = it;
@@ -1726,10 +1752,15 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
                             }
                         }
                     }
+                    //field->isArrayFixedSize = true;
+                    //field->isByOffset = false;
                     if (it->str != "]") {
                         printErrorWrongToken(meta, it, "]");
                         skipLine(meta, it);
                         continue;
+                    }
+                    if (field->typeKw == kw::Bytes) {
+                        field->isOptional = false;
                     }
                     if (next(meta, it, false) == next_r('y', 'y')) {
                         printErrorWrongToken(meta, it, "end of line");
@@ -1874,11 +1905,27 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
         return false;
     }
     std::sort(structMeta->fieldsVec.begin(), structMeta->fieldsVec.end(),
-        [](const AST::StructFieldMeta* l, const AST::StructFieldMeta* r) {
+        [](const AST::FieldMeta* l, const AST::FieldMeta* r) {
             return l->isOptional < r->isOptional;
+            // // 0 - buit-in
+            // // 1 - custom
+            // // 2 - optional
+            // uint8_t ll = 0;
+            // if (!l->isBuiltIn) {
+            //     ll += 1;
+            // }
+            // if (l->isOptional) {
+            //     ll += 1;
+            // }
+            // uint8_t rr = 0;
+            // if (!r->isBuiltIn) {
+            //     rr += 1;
+            // }
+            // if (r->isOptional) {
+            //     rr += 1;
+            // }
+            // return ll < rr;
         });
-    std::unique_ptr<AST::ObjectMeta> objectMeta = std::make_unique<AST::ObjectMeta>(
-        meta.path, itAtStructName->line, itAtStructName->pos);
     objectMeta->putStructMeta(std::move(structMeta));
     m_ast.insertObject(meta, itAtStructName->str, std::move(objectMeta));
     return true;
@@ -1939,8 +1986,8 @@ bool INBCompiler::parseUnion(AST::ParsingMeta& meta, tokens_it& it) {
             break;
         }
         ++errorsCount;
-        std::unique_ptr<AST::UnionFieldMeta> fieldPtr = std::make_unique<AST::UnionFieldMeta>();
-        AST::UnionFieldMeta* field = fieldPtr.get();
+        std::unique_ptr<AST::FieldMeta> fieldPtr = std::make_unique<AST::FieldMeta>();
+        AST::FieldMeta* field = fieldPtr.get();
         kw keyword = kw::UNDEFINED;
         keyword = findKeyword(it->str);
         if (isBuiltInType(keyword)) {

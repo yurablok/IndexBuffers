@@ -1,6 +1,5 @@
 #pragma once
 #include "stdafx.h"
-#include "colored_cout.h"
 
 #include "ast_meta.h"
 

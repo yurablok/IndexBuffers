@@ -133,16 +133,21 @@ namespace AdditionalNS
 //}
 //enum TestEnum { // error
 //}
+
+struct SomeType: mmh3 {
+    optional uint32 var
+    int32 def = -1'2'3
+}
+
+include "../Tests/debug.ibs"
+
 enum TestEnum2 {
     one = 0
     two = 2
     three = 4
 }
 
-include "../Tests/debug.ibs"
-
-//struct TestStruct0 //TODO: forward declaration
-//struct TestStrunct111 //TODO: forward declaration
+//struct TestStruct0 //TODO: forward declaration means recursion
 
 //enum DebugEnum {
 //    value1
@@ -185,8 +190,4 @@ struct TestStruct0: mmh3 {
     //int64 f16 = DebugNS::debugConst // warning, uint32 into int64
     //int32 f17 = DebugNS::DebugEnum.count
     //DebugNS::DebugStruct f18 = DebugNS::debugConst // error
-}
-
-struct SomeType: mmh3 {
-    optional uint32 var
 }

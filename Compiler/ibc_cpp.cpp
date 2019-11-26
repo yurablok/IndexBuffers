@@ -1,31 +1,978 @@
 #include "stdafx.h"
 #include "ibc.h"
 
-std::string toUpper(const std::string &str)
-{
-    std::string result;
-    result.resize(str.size());
-    for (uint32_t i = 0; i < str.size(); i++)
-        result[i] = static_cast<char>(std::toupper(str[i]));
-    return result;
+namespace {
+    std::string kw_to_domain_specific(const kw keyword) {
+        switch (keyword) {
+        case kw::Include:   return "include";
+        case kw::Namespace: return "namespace";
+        case kw::Enum:      return "enum";
+        case kw::Struct:    return "struct";
+        case kw::Const:     return "const";
+        case kw::Union:     return "union";
+        case kw::Int8:      return "int8_t";
+        case kw::UInt8:     return "uint8_t";
+        case kw::Int16:     return "int16_t";
+        case kw::UInt16:    return "uint16_t";
+        case kw::Int32:     return "int32_t";
+        case kw::UInt32:    return "uint32_t";
+        case kw::Int64:     return "int64_t";
+        case kw::UInt64:    return "uint64_t";
+        case kw::Float32:   return "float";
+        case kw::Float64:   return "double";
+        default:            return std::string();
+        }
+    }
+
+    static const std::map<std::string, std::string> standard = {
+        { "int8"    , "int8_t"   },
+        { "uint8"   , "uint8_t"  },
+        { "int16"   , "int16_t"  },
+        { "uint16"  , "uint16_t" },
+        { "int32"   , "int32_t"  },
+        { "uint32"  , "uint32_t" },
+        { "int64"   , "int64_t"  },
+        { "uint64"  , "uint64_t" },
+        { "float32" , "float"    },
+        { "float64" , "double"   },
+        { "bytes"   , "bytes"    }
+    };
+
+    struct WritingMeta {
+        const std::deque<std::string>* namespacePtr = nullptr;
+        std::string spacing;
+        kw previous = kw::UNDEFINED;
+    };
+
+    void writeConst(WritingMeta& writingMeta, std::ostream& output,
+        const AST& ast, const AST::ObjectMeta* objectMeta) {
+
+        const AST::ConstMeta* constMeta = objectMeta->constMeta();
+        std::cout << "const " << constMeta->name << std::endl;
+        const std::string type = kw_to_domain_specific(constMeta->type);
+        if (writingMeta.previous != kw::Const) {
+            output << std::endl;
+        }
+        output << "static constexpr " << type << " "
+            << constMeta->name << " = ";
+        if (isScalarType(constMeta->valueKw)) {
+            output << constMeta->valueStr << ";";
+        }
+        else {
+            std::string namespace_;
+            if (!AST::isNamespacesEqual(
+                constMeta->valuePtr->namespace_,
+                *writingMeta.namespacePtr)) {
+
+                for (const auto& ns : objectMeta->namespace_) {
+                    namespace_ += ns;
+                    namespace_ += "::";
+                }
+            }
+            switch (constMeta->valueKw) {
+            case kw::Const:
+                output << namespace_ << constMeta->valuePtr->constMeta()->name << ";";
+                break;
+            case kw::Enum: {
+                const auto& value = constMeta->valuePtr->enumMeta()->
+                    valuesVec[constMeta->valueIdx];
+                output << namespace_ << constMeta->valuePtr->enumMeta()->name
+                    << "::" << value.first << ";";
+                break;
+            }
+            case kw::Min:
+                output << namespace_ << constMeta->valuePtr->enumMeta()->
+                        valuesVec.front().second
+                    << "; // " << namespace_ << constMeta->valuePtr->enumMeta()->name
+                    << ".min";
+                break;
+            case kw::Max:
+                output << namespace_ << constMeta->valuePtr->enumMeta()->
+                        valuesVec.back().second
+                    << "; // " << namespace_ << constMeta->valuePtr->enumMeta()->name
+                    << ".max";
+                break;
+            case kw::Count:
+                output << namespace_ << constMeta->valuePtr->enumMeta()->
+                        valuesVec.size()
+                    << "; // " << namespace_ << constMeta->valuePtr->enumMeta()->name
+                    << ".count";
+                break;
+            default:
+                output << "$ERROR$";
+                break;
+            }
+        }
+        output << std::endl;
+    }
+
+    void writeEnum(WritingMeta& writingMeta, std::ostream& output,
+        const AST& ast, const AST::ObjectMeta* objectMeta) {
+
+        const AST::EnumMeta* enumMeta = objectMeta->enumMeta();
+        std::cout << "enum " << enumMeta->name << std::endl;
+        output << writingMeta.spacing << std::endl;
+        output << writingMeta.spacing << "struct " << enumMeta->name
+            << " { // enum " << enumMeta->name << std::endl;
+        output << writingMeta.spacing << "enum _ : "
+            << kw_to_domain_specific(enumMeta->type) << " {" << std::endl;
+        for (const auto& value : enumMeta->valuesVec) {
+            output << writingMeta.spacing << "    " << value.first
+                << " = " << value.second << "," << std::endl;
+        }
+        output << writingMeta.spacing << "    " << "_SPECIAL_" << " = "
+            << enumMeta->valuesVec.back().second + 1 << std::endl;
+        output << writingMeta.spacing << "};" << std::endl;
+        output << writingMeta.spacing
+            << "static constexpr const char* to_string(const _ enum_value) {" << std::endl;
+        output << writingMeta.spacing << "    " << "switch(enum_value) {" << std::endl;
+        for (const auto& value : enumMeta->valuesVec) {
+            output << writingMeta.spacing << "    " << "case " << value.first
+                << ": return \"" << value.first << "\";" << std::endl;
+        }
+        output << writingMeta.spacing << "    " << "default: break;" << std::endl;
+        output << writingMeta.spacing << "    " << "}" << std::endl;
+        output << writingMeta.spacing << "    " << "return nullptr;" << std::endl;
+        output << writingMeta.spacing << "}" << std::endl;
+        output << writingMeta.spacing << "template <typename string_t>" << std::endl;
+        output << writingMeta.spacing
+            << "static _ from_string(const string_t& string_value) {" << std::endl;
+        output << writingMeta.spacing << "    "
+            << "static const std::unordered_map<string_t, _> map = {" << std::endl;
+        for (uint32_t i = 0; i < enumMeta->valuesVec.size(); ++i) {
+            const auto& value = enumMeta->valuesVec[i];
+            output << writingMeta.spacing << "    " << "    " << "{ \""
+                << value.first << "\", " << value.first << " }";
+            if (i != enumMeta->valuesVec.size() - 1) {
+                output << ",";
+            }
+            output << std::endl;
+        }
+        output << writingMeta.spacing << "    " << "};" << std::endl;
+        output << writingMeta.spacing << "    "
+            << "const auto it = map.find(string_value);" << std::endl;
+        output << writingMeta.spacing << "    "
+            << "if (it == map.end()) {" << std::endl;
+        output << writingMeta.spacing << "    "
+            << "    return _SPECIAL_;" << std::endl;
+        output << writingMeta.spacing << "    " << "}" << std::endl;
+        output << writingMeta.spacing << "    "
+            << "return it->second;" << std::endl;
+        output << writingMeta.spacing << "}" << std::endl;
+        output << writingMeta.spacing << "static _ from_string(const char* string_value) {" << std::endl;
+        output << writingMeta.spacing << "    " <<
+            "return from_string(std::string(string_value));" << std::endl;
+        output << writingMeta.spacing << "}" << std::endl;
+        output << writingMeta.spacing << "static constexpr _ min() {" << std::endl;
+        output << writingMeta.spacing << "    "
+            << "return " << enumMeta->valuesVec.front().first << ";" << std::endl;
+        output << writingMeta.spacing << "}" << std::endl;
+        output << writingMeta.spacing << "static constexpr _ max() {" << std::endl;
+        output << writingMeta.spacing << "    "
+            << "return " << enumMeta->valuesVec.back().first << ";" << std::endl;
+        output << writingMeta.spacing << "}" << std::endl;
+        output << writingMeta.spacing << "static constexpr "
+            << kw_to_domain_specific(enumMeta->type) << " count() {" << std::endl;
+        output << writingMeta.spacing << "    " << "return "
+            << enumMeta->valuesVec.size() << ";" << std::endl;
+        output << writingMeta.spacing << "}" << std::endl;
+        output << writingMeta.spacing << "static constexpr _ at(const "
+            << kw_to_domain_specific(enumMeta->type) << " index) {" << std::endl;
+        output << writingMeta.spacing << "    " << "switch (index) {" << std::endl;
+        for (uint32_t i = 0; i < enumMeta->valuesVec.size(); ++i) {
+            output << writingMeta.spacing << "    " << "case " << i << ": return "
+                << enumMeta->valuesVec[i].first << ";" << std::endl;
+        }
+        output << writingMeta.spacing << "    " << "default: break;" << std::endl;
+        output << writingMeta.spacing << "    " << "}" << std::endl;
+        output << writingMeta.spacing << "    " << "return _SPECIAL_;" << std::endl;
+        output << writingMeta.spacing << "}" << std::endl;
+        output << writingMeta.spacing << "}; // enum " << enumMeta->name << std::endl;
+    }
+
+    void writeStruct(WritingMeta& writingMeta, std::ostream& output,
+        const AST& ast, const AST::ObjectMeta* objectMeta) {
+
+        const AST::StructMeta* structMeta = objectMeta->structMeta();
+        std::cout << "struct " << structMeta->name << std::endl;
+        if (structMeta->fieldsVec.empty()) {
+            return;
+        }
+        output << std::endl;
+        output << "class " << structMeta->name << " { // struct " << structMeta->name << std::endl;
+        output << "public:" << std::endl;
+        output << "    " << structMeta->name << "() {}" << std::endl;
+        //output << "    " << structMeta->name << "(const uint32_t reserve = 0) {" << std::endl;
+        //output << "    " << "    " << "create(reserve);" << std::endl;
+        //output << "    " << "}" << std::endl;
+        output << "    " << structMeta->name << "(void* from_ptr) {" << std::endl;
+        output << "    " << "    " << "from(from_ptr);" << std::endl;
+        output << "    " << "}" << std::endl;
+        output << "    " << structMeta->name << "(const void* from_ptr) {" << std::endl;
+        output << "    " << "    " << "from(from_ptr);" << std::endl;
+        output << "    " << "}" << std::endl;
+        output << "    " << "void create(const uint32_t reserve = 0) {" << std::endl;
+        output << "    " << "    " << "if (reserve != UINT32_MAX) {" << std::endl;
+        output << "    " << "    " << "    " << "m_table_offset = 0;" << std::endl;
+        output << "    " << "    " << "    " << "m_from_ptr = nullptr;" << std::endl;
+        output << "    " << "    " << "    " << "m_buffer.reset();" << std::endl;
+        output << "    " << "    " << "    " << "m_buffer = std::make_shared<"
+            "std::vector<uint8_t>>();" << std::endl;
+        output << "    " << "    " << "    " << "m_buffer->reserve(reserve);" << std::endl;
+        output << "    " << "    " << "    " << "m_buffer->resize(sizeof(table));" << std::endl;
+        output << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "new(get_table()) table();" << std::endl;
+        for (const auto& field : structMeta->fieldsVec) {
+            if (field->isOptional || field->isBuiltIn
+                || field->isArray || field->typeKw == kw::Enum) {
+                continue;
+            }
+            output << "    " << "    " << "get_" << field->name << "().create(UINT32_MAX);" << std::endl;
+        }
+        output << "    " << "}" << std::endl;
+        output << "    " << "bool from(void* from_ptr, const uint32_t from_size = 0) {" << std::endl;
+        output << "    " << "    " << "m_table_offset = 0;" << std::endl;
+        output << "    " << "    " << "m_buffer.reset();" << std::endl;
+        //TODO: m_is_read_only
+        output << "    " << "    " << "//TODO: m_is_read_only" << std::endl;
+        output << "    " << "    " << "if (from_ptr == nullptr) {" << std::endl;
+        output << "    " << "    " << "    " << "return false;" << std::endl;
+        output << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "m_from_ptr = reinterpret_cast<uint8_t*>(from_ptr);" << std::endl;
+        output << "    " << "    " << "if (from_size > 0) {" << std::endl;
+        output << "    " << "    " << "    " << "if (from_size < size_min()) {" << std::endl;
+        output << "    " << "    " << "    " << "    " << "return false;" << std::endl;
+        output << "    " << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "    " << "if (from_size > size_max()) {" << std::endl;
+        output << "    " << "    " << "    " << "    " << "return false;" << std::endl;
+        output << "    " << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "    " << "m_from_size = from_size;" << std::endl;
+        output << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "else {" << std::endl;
+        output << "    " << "    " << "    " << "size(1);" << std::endl;
+        output << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "return true;" << std::endl;
+        output << "    " << "}" << std::endl;
+        output << "    " << "bool from(const void* from_ptr) {" << std::endl;
+        output << "    " << "    " << "return from(const_cast<void*>(from_ptr));" << std::endl;
+        output << "    " << "}" << std::endl;
+        output << "    " << "void from(uint32_t table_offset, const void* from_ptr," << std::endl;
+        output << "    " << "    " << "const uint32_t from_size, "
+            "std::shared_ptr<std::vector<uint8_t>> buffer) {" << std::endl;
+        output << "    " << "    " << "m_table_offset = table_offset;" << std::endl;
+        output << "    " << "    " << "m_buffer = buffer;" << std::endl;
+        output << "    " << "    " << "m_from_ptr = reinterpret_cast<uint8_t*>("
+            "const_cast<void*>(from_ptr));" << std::endl;
+        output << "    " << "    " << "m_from_size = from_size;" << std::endl;
+        output << "    " << "}" << std::endl;
+        output << "    " << "void* to() {" << std::endl;
+        output << "    " << "    " << "if (m_from_ptr) {" << std::endl;
+        output << "    " << "    " << "    " << "return m_from_ptr;" << std::endl;
+        output << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "if (m_buffer) {" << std::endl;
+        output << "    " << "    " << "    " << "return m_buffer->data();" << std::endl;
+        output << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "return nullptr;" << std::endl;
+        output << "    " << "}" << std::endl;
+        output << "    " << "const void* to() const {" << std::endl;
+        output << "    " << "    " << "return const_cast<" << structMeta->name
+            << "*>(this)->to();" << std::endl;
+        output << "    " << "}" << std::endl;
+        output << "    " << "uint32_t size(const uint8_t calculate = 0) const {" << std::endl;
+        output << "    " << "    " << "if (m_from_ptr) {" << std::endl;
+        output << "    " << "    " << "    " << "if (calculate > 0) {" << std::endl;
+        output << "    " << "    " << "    " << "    " << "m_from_size = 0;" << std::endl;
+        output << "    " << "    " << "    " << "    " << "if (calculate == 1) {" << std::endl;
+        output << "    " << "    " << "    " << "    " << "    "
+            << "m_from_size += sizeof(table);" << std::endl;
+        output << "    " << "    " << "    " << "    " << "}" << std::endl;
+        for (const auto& field : structMeta->fieldsVec) {
+            // 0. fixed scalar               ---
+            // 1. fixed struct               get_x().size(2)
+            // 2. fixed array of scalars     ---
+            // 3. fixed array of structs     for size_x(): get_x(i).size(2)
+            // 4. optional scalar            size_x()
+            // 5. optional struct            has_x() get_x().size(2)
+            // 6. optional array of scalars  sizeof(uint32_t) + size_x() * sizeof(typeof(x))
+            // 7. optional array of structs  sizeof(uint32_t) + for size_x(): get_x(i).size(2)
+            if (field->typeKw == kw::Bytes) {
+                output << "    " << "    " << "    " << "    "
+                    << "m_from_size += size_" << field->name
+                    << "() + sizeof(uint32_t);" << std::endl;
+            }
+            else if (field->isOptional) {
+                if (field->isArray) {
+                    if (field->isScalar) { // 6
+                        output << "    " << "    " << "    " << "    "
+                            << "m_from_size += size_" << field->name << "() * sizeof("
+                            << kw_to_domain_specific(field->typeKw)
+                            << ") + sizeof(uint32_t);" << std::endl;
+                    }
+                    else { // 7
+                        output << "    " << "    " << "    " << "    "
+                            << "for (uint32_t i = 0, s = size_" << field->name
+                            << "(); i < s; ++i) {" << std::endl;
+                        output << "    " << "    " << "    " << "    "
+                            << "    " << "m_from_size += get_" << field->name
+                            << "(i).size(2);" << std::endl;
+                        output << "    " << "    " << "    " << "    "
+                            << "} m_from_size += sizeof(uint32_t);" << std::endl;
+                    }
+                }
+                else {
+                    if (field->isScalar) { // 4
+                        output << "    " << "    " << "    " << "    "
+                            << "m_from_size += size(fields::" << field->name << ");" << std::endl;
+                    }
+                    else { // 5
+                        output << "    " << "    " << "    " << "    "
+                            << "if (has_" << field->name << "()) {" << std::endl;
+                        output << "    " << "    " << "    " << "    "
+                            << "    " << "m_from_size += get_" << field->name
+                            << "().size(2);" << std::endl;
+                        output << "    " << "    " << "    " << "    " << "}" << std::endl;
+                    }
+                }
+            }
+            else {
+                if (field->isArray) {
+                    if (field->isScalar) { // 2
+                    }
+                    else { // 3
+                        output << "    " << "    " << "    " << "    "
+                            << "for (uint32_t i = 0, s = size_" << field->name
+                            << "(); i < s; ++i) {" << std::endl;
+                        output << "    " << "    " << "    " << "    "
+                            << "    " << "m_from_size += get_" << field->name
+                            << "(i).size(2);" << std::endl;
+                        output << "    " << "    " << "    " << "    " << "}" << std::endl;
+                    }
+                }
+                else {
+                    if (field->isScalar) { // 0
+                    }
+                    else { // 1
+                        output << "    " << "    " << "    " << "    "
+                            << "m_from_size += get_" << field->name
+                            << "().size(2);" << std::endl;
+                    }
+                }
+            }
+        }
+        output << "    " << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "    " << "return m_from_size;" << std::endl;
+        output << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "if (m_buffer) {" << std::endl;
+        output << "    " << "    " << "    "
+            << "return static_cast<uint32_t>(m_buffer->size());" << std::endl;
+        output << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "return 0;" << std::endl;
+        output << "    " << "}" << std::endl;
+        uint64_t sizeMin = 0;
+        uint64_t sizeMax = 0;
+        structMeta->calcSizeMinMax(sizeMin, sizeMax);
+        if (sizeMax == UINT64_MAX) {
+            switch (structMeta->offsetType) {
+            case kw::UInt8: sizeMax = UINT8_MAX; break;
+            case kw::UInt16: sizeMax = UINT16_MAX; break;
+            case kw::UInt32: sizeMax = UINT32_MAX; break;
+            default: break;
+            }
+        }
+        output << "    " << "static uint32_t size_min() {" << std::endl;
+        output << "    " << "    " << "return " << sizeMin << ";" << std::endl;
+        output << "    " << "}" << std::endl;
+        output << "    " << "static uint32_t size_max() {" << std::endl;
+        output << "    " << "    " << "return " << sizeMax << ";" << std::endl;
+        output << "    " << "}" << std::endl;
+
+        {
+            writingMeta.spacing = "    ";
+            std::unique_ptr<AST::EnumMeta> enumField = std::make_unique<AST::EnumMeta>();
+            enumField->name = "fields";
+            enumField->type = kw::UInt32;
+            for (uint32_t i = 0; i < structMeta->fieldsVec.size(); ++i) {
+                const auto& field = structMeta->fieldsVec[i];
+                enumField->valuesVec.emplace_back(field->name, i);
+            }
+            std::unique_ptr<AST::ObjectMeta> objectField = std::make_unique<AST::ObjectMeta>();
+            objectField->putEnumMeta(std::move(enumField));
+            writeEnum(writingMeta, output, ast, objectField.get());
+        }
+        // === =============================== ===
+        // ==         main public staff         ==
+        // === =============================== ===
+        output << std::endl;
+        output << "    " << "uint32_t offset(const fields::_ field) const {" << std::endl;
+        output << "    " << "    " << "static const table o;" << std::endl;
+        output << "    " << "    " << "const table* t = get_table();" << std::endl;
+        output << "    " << "    " << "switch (field) {" << std::endl;
+        for (const auto& field : structMeta->fieldsVec) {
+            output << "    " << "    " << "case fields::" << field->name << ": return ";
+            if (field->isOptional) {
+                output << "t->__" << field->name << ";";
+            }
+            else {
+                output << "m_table_offset + static_cast<uint32_t>(" << std::endl;
+                output << "    " << "    " << "    "
+                    << "reinterpret_cast<uintptr_t>(&o" << "." << field->name
+                    << ") - " << "reinterpret_cast<uintptr_t>(&o" << "));";
+            }
+            output << std::endl;
+        }
+        output << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "return UINT32_MAX;" << std::endl;
+        output << "    " << "}" << std::endl;
+        // === =============================== ===
+        output << "    " << "bool has(const fields::_ field) const {" << std::endl;
+        output << "    " << "    " << "switch (field) {" << std::endl;
+        for (const auto& field : structMeta->fieldsVec) {
+            output << "    " << "    " << "case fields::" << field->name << ": ";
+            if (field->isOptional) {
+                output << "return offset(field) > 0;";
+            }
+            else {
+                output << "return true;";
+            }
+            output << std::endl;
+        }
+        output << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "return false;" << std::endl;
+        output << "    " << "}" << std::endl;
+        // === =============================== ===
+        output << "    " << "void* get(const fields::_ field) {" << std::endl;
+        output << "    " << "    " << "switch (field) {" << std::endl;
+        for (const auto& field : structMeta->fieldsVec) {
+            output << "    " << "    " << "case fields::" << field->name
+                << ": return reinterpret_cast<uint8_t*>(" << std::endl;
+            output << "    " << "    " << "    " << "base_ptr()) + offset(field)";
+            if (field->isArray && field->arrayKw == kw::UNDEFINED) {
+                output << " + sizeof(uint32_t)";
+            }
+            output << ";" << std::endl;
+        }
+        output << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "return nullptr;" << std::endl;
+        output << "    " << "}" << std::endl;
+        output << "    " << "const void* get(const fields::_ field) const {" << std::endl;
+        output << "    " << "    " << "return const_cast<"
+            << structMeta->name << "*>(this)->get(field);" << std::endl;
+        output << "    " << "}" << std::endl;
+        // === =============================== ===
+        output << "    " << "void set(const fields::_ field, const void* data, const uint32_t size) {" << std::endl;
+        output << "    " << "    " << "if (!has(field)) {" << std::endl;
+        output << "    " << "    " << "    " << "if (m_from_ptr) {" << std::endl;
+        output << "    " << "    " << "    " << "    " << "return;" << std::endl;
+        output << "    " << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "    " << "else {" << std::endl;
+        output << "    " << "    " << "    " << "    " << "if (!m_buffer) {" << std::endl;
+        output << "    " << "    " << "    " << "    " << "    "
+            << "m_buffer = std::make_shared<std::vector<uint8_t>>();" << std::endl;
+        output << "    " << "    " << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "    " << "    " << "switch (field) {" << std::endl;
+        for (const auto& field : structMeta->fieldsVec) {
+            if (!field->isOptional) {
+                continue;
+            }
+            output << "    " << "    " << "    " << "    " << "case fields::"
+                << field->name << ":" << std::endl;
+            output << "    " << "    " << "    " << "    " << "    "
+                << "get_table()->__" << field->name << " = m_buffer->size();" << std::endl;
+            output << "    " << "    " << "    " << "    " << "    "
+                << "m_buffer->resize(m_buffer->size()";
+            if (field->isArray && field->arrayKw == kw::UNDEFINED) {
+                output << " + sizeof(uint32_t)";
+            }
+            output << std::endl;
+            output << "    " << "    " << "    " << "    " << "    " << "    "
+                << "+ size * sizeof(";
+            if (isBuiltInType(field->typeKw)) {
+                if (field->typeKw == kw::Bytes) {
+                    output << kw_to_domain_specific(kw::UInt8);
+                }
+                else {
+                    output << kw_to_domain_specific(field->typeKw);
+                }
+            }
+            else {
+                for (const auto& ns : field->typePtr->namespace_) {
+                    output << ns << "::";
+                }
+                switch (field->typeKw) {
+                case kw::Enum:
+                    output << kw_to_domain_specific(field->typePtr->enumMeta()->type);
+                    break;
+                case kw::Struct:
+                    output << field->typePtr->structMeta()->name << "::table";
+                    break;
+                //TODO: case kw::Union:
+                default:
+                    output << "%ERROR%";
+                    break;
+                }
+            }
+            output << "));" << std::endl;
+            if (field->isArray && field->arrayKw == kw::UNDEFINED) {
+                output << "    " << "    " << "    " << "    " << "    "
+                    << "*reinterpret_cast<uint32_t*>((reinterpret_cast<uint8_t*>(" << std::endl;
+                output << "    " << "    " << "    " << "    " << "    " << "    "
+                    << "base_ptr()) + get_table()->__" << field->name << ")) = size;" << std::endl;
+            }
+            if (!field->isBuiltIn) {
+                if (field->isArray) {
+                    output << "    " << "    " << "    " << "    " << "    "
+                        << "for (uint32_t i = 0; i < size; ++i) {" << std::endl;
+                    output << "    " << "    " << "    " << "    " << "    " << "    "
+                        << "get_" << field->name << "(i).create(UINT32_MAX);" << std::endl;
+                    output << "    " << "    " << "    " << "    " << "    "
+                        << "}" << std::endl;
+                }
+                else {
+                    output << "    " << "    " << "    " << "    " << "    "
+                        << "get_" << field->name << "().create(UINT32_MAX);" << std::endl;
+                }
+            }
+            output << "    " << "    " << "    " << "    " << "    "
+                << "break;" << std::endl;
+        }
+        output << "    " << "    " << "    " << "    " << "default: return;" << std::endl;
+        output << "    " << "    " << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "if (data) {" << std::endl;
+        output << "    " << "    " << "    " << "std::copy(reinterpret_cast<const uint8_t*>(data)," << std::endl;
+        output << "    " << "    " << "    " << "    " << "reinterpret_cast<const uint8_t*>(data) + size," << std::endl;
+        output << "    " << "    " << "    " << "    " << "reinterpret_cast<uint8_t*>(get(field)));" << std::endl;
+        output << "    " << "    " << "}" << std::endl;
+        output << "    " << "}" << std::endl;
+        // === =============================== ===
+        output << "    " << "uint32_t size(const fields::_ field) const {" << std::endl;
+        output << "    " << "    " << "if (!has(field)) {" << std::endl;
+        output << "    " << "    " << "    return 0;" << std::endl;
+        output << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "switch (field) {" << std::endl;
+        for (const auto& field : structMeta->fieldsVec) {
+            output << "    " << "    " << "case fields::" << field->name << ":" << std::endl;
+            output << "    " << "    " << "    " << "return ";
+            if (field->isArray) {
+                if (field->arrayKw == kw::UNDEFINED) {
+                    output << "*(reinterpret_cast<const uint32_t*>(get(field)) - 1)";
+                }
+                else if (isScalarType(field->arrayKw)) {
+                    output << field->arraySize;
+                }
+                else {
+                    for (const auto& ns : field->arrayPtr->namespace_) {
+                        output << ns << "::";
+                    }
+                    switch (field->arrayKw) {
+                    case kw::Const:
+                        output << field->arrayPtr->constMeta()->name;
+                        break;
+                    case kw::Enum:
+                        output << field->arrayPtr->enumMeta()->name << "::"
+                            << field->arrayPtr->enumMeta()->valuesVec[
+                                field->arrayIdx].first;
+                        break;
+                    case kw::Min:
+                        output << field->arrayPtr->enumMeta()->name << "::min()";
+                        break;
+                    case kw::Max:
+                        output << field->arrayPtr->enumMeta()->name << "::max()";
+                        break;
+                    case kw::Count:
+                        output << field->arrayPtr->enumMeta()->name << "::count()";
+                        break;
+                    default:
+                        output << "%ERROR%";
+                        break;
+                    }
+                }
+            }
+            else if (field->isBuiltIn) {
+                output << "sizeof(" << kw_to_domain_specific(field->typeKw) << ")";
+            }
+            else switch (field->typeKw) {
+            case kw::Enum:
+                output << "sizeof(";
+                for (const auto& ns : field->typePtr->namespace_) {
+                    output << ns << "::";
+                }
+                output << field->typePtr->enumMeta()->name << "::_)";
+                break;
+            case kw::Struct:
+                output << "sizeof(";
+                for (const auto& ns : field->typePtr->namespace_) {
+                    output << ns << "::";
+                }
+                output << field->typePtr->structMeta()->name << "::table)";
+                break;
+            default:
+                output << "%ERROR%";
+                break;
+            }
+            output << ";" << std::endl;
+        }
+        output << "    " << "    " << "default:" << std::endl;
+        output << "    " << "    " << "    " << "return 0;" << std::endl;
+        output << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "return 0;" << std::endl;
+        output << "    " << "}" << std::endl;
+
+        //output << "    static types type(const ids& id)" << std::endl;
+        //file << "    {" << std::endl;
+        //file << "        switch (id)" << std::endl;
+        //file << "        {" << std::endl;
+        //for (uint32_t i = 0; i < st.fields.size(); i++)
+        //{
+        //    const auto& member = st.fields[i];
+        //    file << "        case ids::" << member.name << ": return types::" << member.type;
+        //    if (member.isArray && member.type != tokenBytes)
+        //        file << "a";
+        //    file << ";" << std::endl;
+        //}
+        //file << "        default: return types::unknown;" << std::endl;
+        //file << "        }" << std::endl;
+        //file << "    }" << std::endl;
+        //file << std::endl;
+
+        output << std::endl;
+        for (const auto& field : structMeta->fieldsVec) {
+            output << "    " << "bool has_" << field->name << "() const {" << std::endl;
+            output << "    " << "    " << "return has(fields::" << field->name << ");" << std::endl;
+            output << "    " << "}" << std::endl;
+            std::string type;
+            if (field->isBuiltIn) {
+                if (field->typeKw == kw::Bytes) {
+                    type = kw_to_domain_specific(kw::UInt8);
+                }
+                else {
+                    type = kw_to_domain_specific(field->typeKw);
+                }
+            }
+            else {
+                for (const auto& ns : field->typePtr->namespace_) {
+                    type += ns;
+                    type += "::";
+                }
+                switch (field->typeKw) {
+                case kw::Enum:
+                    type += field->typePtr->enumMeta()->name;
+                    type += "::_";
+                    break;
+                case kw::Struct:
+                    type += field->typePtr->enumMeta()->name;
+                    break;
+                case kw::Union:
+                    type += field->typePtr->enumMeta()->name;
+                    break;
+                default:
+                    type = "%ERROR%";
+                    break;
+                }
+            }
+            output << "    " << type;
+            if (field->isArray || !field->isBuiltIn) {
+                if (field->typeKw != kw::Enum) {
+                    output << "&";
+                }
+            }
+            output << " get_" << field->name << "(";
+            if (field->isArray) {
+                output << "const uint32_t index";
+            }
+            output << ") {" << std::endl;
+            if (!field->isBuiltIn && field->typeKw != kw::Enum) {
+                output << "    " << "    " << "static thread_local " << type
+                    << " " << field->name << ";" << std::endl;
+                output << "    " << "    " << "const auto " << field->name << "_t = ";
+                if (field->isArray) {
+                    output << "&";
+                }
+                output << "reinterpret_cast<" << type << "::table*>(get(fields::"
+                    << field->name << "))";
+                if (field->isArray) {
+                    output << "[index]";
+                }
+                output << ";" << std::endl;
+                output << "    " << "    " << "const uint32_t table_offset = "
+                    "reinterpret_cast<const uint8_t*>(" << field->name
+                    << "_t) - base_ptr();" << std::endl;
+                output << "    " << "    " << field->name
+                    << ".from(table_offset, m_from_ptr, 0, m_buffer);" << std::endl;
+                output << "    " << "    " << "return " << field->name << ";" << std::endl;
+            }
+            else {
+                output << "    " << "    " << "return ";
+                if (!field->isArray) {
+                    output << "*";
+                }
+                output << "reinterpret_cast<" << type << "*>(get(fields::"
+                    << field->name << "))";
+                if (field->isArray) {
+                    output << "[index]";
+                }
+                output << ";" << std::endl;
+            }
+            output << "    " << "}" << std::endl;
+            output << "    " << "const " << type << "& get_" << field->name << "(";
+            if (field->isArray) {
+                output << "const uint32_t index";
+            }
+            output << ") const {" << std::endl;
+            output << "    " << "    " << "return const_cast<" << structMeta->name
+                << "*>(this)->get_" << field->name << "(";
+            if (field->isArray) {
+                output << "index";
+            }
+            output << ");" << std::endl;
+            output << "    " << "}" << std::endl;
+            if (field->typeKw == kw::Bytes && field->arrayKw == kw::UNDEFINED) {
+                output << "    " << "template <typename bytes_t>" << std::endl;
+                output << "    " << "bytes_t get_" << field->name << "() const {" << std::endl;
+                output << "    " << "    " << "bytes_t bytes;" << std::endl;
+                output << "    " << "    " << "bytes.resize(size_" << field->name
+                    << "());" << std::endl;
+                output << "    " << "    " << "std::copy(reinterpret_cast<"
+                    "const uint8_t*>(get(fields::" << field->name << "))," << std::endl;
+                output << "    " << "    " << "    " << "reinterpret_cast<const uint8_t*>("
+                    "get(fields::" << field->name << ")) + size_" << field->name << "()," << std::endl;
+                output << "    " << "    " << "    " << "reinterpret_cast<uint8_t*>("
+                    "&bytes[0]));" << std::endl;
+                //std::back_inserter(bytes));
+                output << "    " << "    " << "return bytes;" << std::endl;
+                output << "    " << "}" << std::endl;
+
+                output << "    " << "template <typename bytes_t>" << std::endl;
+                output << "    " << "void set_" << field->name << "(const bytes_t& bytes) {" << std::endl;
+                output << "    " << "    " << "set(fields::" << field->name
+                    << ", bytes.data(), bytes.size());" << std::endl;
+                output << "    " << "}" << std::endl;
+            }
+            if (field->isArray) {
+                 if (field->arrayKw == kw::UNDEFINED) {
+                     output << "    " << "void set_" << field->name
+                         << "(const uint32_t size) {" << std::endl;
+                     output << "    " << "    " << "set(fields::" << field->name
+                         << ", nullptr, size);" << std::endl;
+                     output << "    " << "}" << std::endl;
+                 }
+                 else if (field->isOptional) {
+                     output << "    " << "void set_" << field->name << "() {" << std::endl;
+                     output << "    " << "    " << "set(fields::" << field->name
+                         << ", nullptr, ";
+                     if (isScalarType(field->arrayKw)) {
+                         output << field->arraySize;
+                     }
+                     else {
+                         for (const auto& ns : field->arrayPtr->namespace_) {
+                             output << ns << "::";
+                         }
+                         switch (field->arrayKw) {
+                         case kw::Const:
+                             output << field->arrayPtr->constMeta()->name;
+                             break;
+                         case kw::Enum:
+                             output << field->arrayPtr->enumMeta()->name << "::"
+                                 << field->arrayPtr->enumMeta()->valuesVec[
+                                     field->arrayIdx].first;
+                             break;
+                         case kw::Min:
+                             output << field->arrayPtr->enumMeta()->name << "::min()";
+                             break;
+                         case kw::Max:
+                             output << field->arrayPtr->enumMeta()->name << "::max()";
+                             break;
+                         case kw::Count:
+                             output << field->arrayPtr->enumMeta()->name << "::count()";
+                             break;
+                         default:
+                             output << "%ERROR%";
+                             break;
+                         }
+                     }
+                     output << "); " << std::endl;
+                     output << "    " << "}" << std::endl;
+                 }
+                 output << "    " << "uint32_t size_" << field->name << "() const {" << std::endl;
+                 output << "    " << "    " << "return size(fields::" << field->name << ");" << std::endl;
+                 output << "    " << "}" << std::endl;
+            }
+            else {
+                if (field->isBuiltIn) {
+                    output << "    " << "void set_" << field->name << "(const " << type
+                        << " value) {" << std::endl;
+                    output << "    " << "    " << "set(fields::" << field->name
+                        << ", &value, sizeof(" << type << "));" << std::endl;
+                    output << "    " << "}" << std::endl;
+                }
+                else {
+                    output << "    " << "void set_" << field->name << "() {" << std::endl;
+                    output << "    " << "    " << "set(fields::" << field->name
+                        << ", nullptr, sizeof(" << type << "));" << std::endl;
+                    output << "    " << "}" << std::endl;
+                }
+            }
+        }
+
+        output << std::endl;
+        output << "    " << "#pragma pack(1)" << std::endl;
+        output << "    " << "struct table {" << std::endl;
+        for (const auto& field : structMeta->fieldsVec) {
+            output << "    " << "    ";
+            if (field->isOptional) {
+                output << "uint32_t __";
+            }
+            else if (field->isBuiltIn) {
+                if (field->typeKw == kw::Bytes) {
+                    output << kw_to_domain_specific(kw::UInt8) << " ";
+                }
+                else {
+                    output << kw_to_domain_specific(field->typeKw) << " ";
+                }
+            }
+            else if (field->typeKw == kw::Enum) {
+                for (const auto& ns : field->typePtr->namespace_) {
+                    output << ns << "::";
+                }
+                output << field->typePtr->enumMeta()->name << "::_ ";
+            }
+            else if (field->typeKw == kw::Struct) {
+                for (const auto& ns : field->typePtr->namespace_) {
+                    output << ns << "::";
+                }
+                output << field->typePtr->structMeta()->name << "::table ";
+            }
+            else {
+                output << "%ERROR%";
+            }
+
+            output << field->name;
+
+            if (!field->isOptional) {
+                if (field->isArray && field->arrayKw != kw::UNDEFINED) {
+                    output << "[";
+                    if (isScalarType(field->arrayKw)) {
+                        output << field->arraySize;
+                    }
+                    else {
+                        for (const auto& ns : field->arrayPtr->namespace_) {
+                            output << ns << "::";
+                        }
+                        switch (field->arrayKw) {
+                        case kw::Const:
+                            output << field->arrayPtr->constMeta()->name;
+                            break;
+                        case kw::Enum:
+                            output << field->arrayPtr->enumMeta()->name << "::"
+                                << field->arrayPtr->enumMeta()->valuesVec[
+                                    field->arrayIdx].first;
+                            break;
+                        case kw::Min:
+                            output << field->arrayPtr->enumMeta()->name << "::min()";
+                            break;
+                        case kw::Max:
+                            output << field->arrayPtr->enumMeta()->name << "::max()";
+                            break;
+                        case kw::Count:
+                            output << field->arrayPtr->enumMeta()->name << "::count()";
+                            break;
+                        default:
+                            output << "%ERROR%";
+                            break;
+                        }
+                    }
+                    output << "]";
+                }
+                else if (!field->valueStr.empty()) {
+                    output << " = " << field->valueStr;
+                }
+                else if (field->valuePtr) {
+                    output << " = ";
+                    for (const auto& ns : field->valuePtr->namespace_) {
+                        output << ns << "::";
+                    }
+                    switch (field->valueKw) {
+                    case kw::Const:
+                        output << field->valuePtr->constMeta()->name;
+                        break;
+                    case kw::Enum:
+                        output << field->valuePtr->enumMeta()->name << "::"
+                            << field->valuePtr->enumMeta()->valuesVec[
+                                field->valueIdx].first;
+                        break;
+                    case kw::Min:
+                        output << field->valuePtr->enumMeta()->name << "::min()";
+                        break;
+                    case kw::Max:
+                        output << field->valuePtr->enumMeta()->name << "::max()";
+                        break;
+                    case kw::Count:
+                        output << field->valuePtr->enumMeta()->name << "::count()";
+                        break;
+                    default:
+                        output << "%ERROR%";
+                        break;
+                    }
+                }
+            }
+            else {
+                output << " = 0";
+            }
+            output << ";" << std::endl;
+        }
+        output << "    " << "};" << std::endl;
+        output << "    " << "#pragma pack()" << std::endl;
+        output << "private:" << std::endl;
+        output << "    " << "table* get_table() {" << std::endl;
+        output << "    " << "    " << "#ifdef _DEBUG" << std::endl;
+        output << "    " << "    " << "m_table = reinterpret_cast<table*>(" << std::endl;
+        output << "    " << "    " << "    " << "reinterpret_cast<uint8_t*>(base_ptr()) "
+            "+ m_table_offset);" << std::endl;
+        output << "    " << "    " << "#endif // _DEBUG" << std::endl;
+        output << "    " << "    " << "return reinterpret_cast<table*>(" << std::endl;
+        output << "    " << "    " << "    " << "reinterpret_cast<uint8_t*>(base_ptr()) "
+            "+ m_table_offset);" << std::endl;
+        output << "    " << "}" << std::endl;
+        output << "    " << "const table* get_table() const {" << std::endl;
+        output << "    " << "    " << "return const_cast<" << structMeta->name
+            << "*>(this)->get_table();" << std::endl;
+        output << "    " << "}" << std::endl;
+        output << "    " << "void* base_ptr() {" << std::endl;
+        output << "    " << "    " << "if (m_buffer) {" << std::endl;
+        output << "    " << "    " << "    if (m_buffer->empty()) {" << std::endl;
+        output << "    " << "    " << "        return nullptr;" << std::endl;
+        output << "    " << "    " << "    }" << std::endl;
+        output << "    " << "    " << "    return m_buffer->data();" << std::endl;
+        output << "    " << "    " << "}" << std::endl;
+        output << "    " << "    " << "return m_from_ptr;" << std::endl;
+        output << "    " << "}" << std::endl;
+        output << "    " << "const void* base_ptr() const {" << std::endl;
+        output << "    " << "    " << "return const_cast<"
+            << structMeta->name << "*>(this)->base_ptr();" << std::endl;
+        output << "    " << "}" << std::endl;
+        output << "    " << "#ifdef _DEBUG" << std::endl;
+        output << "    " << "table* m_table = nullptr;" << std::endl;
+        output << "    " << "#endif // _DEBUG" << std::endl;
+        output << "    " << "std::shared_ptr<std::vector<uint8_t>> m_buffer;" << std::endl;
+        output << "    " << "uint8_t* m_from_ptr = nullptr;" << std::endl;
+        output << "    " << "mutable uint32_t m_from_size = 0;" << std::endl;
+        output << "    " << "uint32_t m_table_offset = 0;" << std::endl;
+        output << "}; // struct " << structMeta->name << std::endl;
+    }
+
+    void writeUnion(WritingMeta& writingMeta, std::ostream& output,
+        const AST& ast, const AST::ObjectMeta* objectMeta) {
+
+        const AST::UnionMeta* unionMeta = objectMeta->unionMeta();
+
+        std::cout << "union " << unionMeta->name << std::endl;
+    }
+
 }
 
-static const std::map<std::string, std::string> standard =
-{
-    { "int8"    , "int8_t"   },
-    { "uint8"   , "uint8_t"  },
-    { "int16"   , "int16_t"  },
-    { "uint16"  , "uint16_t" },
-    { "int32"   , "int32_t"  },
-    { "uint32"  , "uint32_t" },
-    { "int64"   , "int64_t"  },
-    { "uint64"  , "uint64_t" },
-    { "float32" , "float"    },
-    { "float64" , "double"   },
-    { "bytes"   , "bytes"  }
-};
-
 void INBCompiler::genCPP(const AST& ast, const std::string& outputSuffix) {
+    WritingMeta writingMeta;
     for (const auto& fileMeta : ast.filesMeta) {
         std::string outputPath = fileMeta.name;
         outputPath.resize(outputPath.rfind('.'));
@@ -66,24 +1013,41 @@ void INBCompiler::genCPP(const AST& ast, const std::string& outputSuffix) {
         output << "#ifndef " << strDefineGuard << std::endl;
         output << "#define " << strDefineGuard << std::endl;
 
+        output << std::endl;
+        output << "#include <cstdint>" << std::endl;
+        output << "#include <memory>" << std::endl;
+        output << "#include <vector>" << std::endl;
+        output << "#include <string>" << std::endl;
+        output << "#include <unordered_map>" << std::endl;
+        for (const auto& include_ : fileMeta.includes) {
+            std::string temp = include_;
+            temp.resize(temp.rfind('.'));
+            temp += outputSuffix;
+            temp += ".hpp";
+            output << "#include \"" << temp << "\"" << std::endl;
+        }
+
         for (const auto& namespaceMeta : fileMeta.ns) {
+            output << std::endl;
             for (const auto& namespacePart : namespaceMeta.namespace_) {
                 output << "namespace " << namespacePart << " {" << std::endl;
             }
+            writingMeta.namespacePtr = &namespaceMeta.namespace_;
 
             for (const auto& object : namespaceMeta.objects) {
                 switch (object->type()) {
                 case kw::Const:
-                    std::cout << "const " << object->constMeta()->name << std::endl;
+                    writeConst(writingMeta, output, ast, object);
                     break;
                 case kw::Enum:
-                    std::cout << "enum " << object->enumMeta()->name << std::endl;
+                    writingMeta.spacing.clear();
+                    writeEnum(writingMeta, output, ast, object);
                     break;
                 case kw::Struct:
-                    std::cout << "struct " << object->structMeta()->name << std::endl;
+                    writeStruct(writingMeta, output, ast, object);
                     break;
                 case kw::Union:
-                    std::cout << "union " << object->unionMeta()->name << std::endl;
+                    writeUnion(writingMeta, output, ast, object);
                     break;
                 default:
                     std::cout << clr::yellow << "Warning: Unexpected object type ("
@@ -91,37 +1055,19 @@ void INBCompiler::genCPP(const AST& ast, const std::string& outputSuffix) {
                         << clr::reset << std::endl;
                     break;
                 }
+                writingMeta.previous = object->type();
             }
 
+            output << std::endl;
             for (const auto& namespacePart : namespaceMeta.namespace_) {
                 output << "} // " << namespacePart << std::endl;
             }
         }
+        output << std::endl;
         output << "#endif // " << strDefineGuard << std::endl;
     }
 
     /*
-
-    std::ofstream file(out);
-
-    file << "// This header was generated by IndexBuffers" << std::endl;
-    file << "// https://github.com/yurablok/IndexBuffers" << std::endl;
-    std::string filedef(toUpper(out));
-    for (uint32_t i = 0; i < filedef.size(); i++)
-        if (filedef[i] == '.')
-            filedef[i] = '_';
-    file << "#ifndef " << filedef << std::endl;
-    file << "#define " << filedef << std::endl;
-    file << std::endl;
-    file << "#include <vector>" << std::endl;
-    file << "#include <memory>" << std::endl;
-    //file << "#include <cstring>" << std::endl;
-    file << std::endl;
-    for (const auto &ns : m_namespaces)
-    {
-        file << "namespace " << ns << std::endl;
-        file << "{" << std::endl;
-    }
     file << "namespace _inner_" << std::endl;
     file << "{" << std::endl;
     file << "    static void copybybytes(const void* src, void* dst, const uint32_t size)" << std::endl;
@@ -138,468 +1084,6 @@ void INBCompiler::genCPP(const AST& ast, const std::string& outputSuffix) {
     file << "    static uint32_t zero = 0;" << std::endl;
     file << "}" << std::endl;
     file << std::endl;
-    // === =============================== ===
-    // ==             constants             ==
-    // === =============================== ===
-    for (const auto &c : m_constants)
-    {
-        auto stnd = standard.find(c.type);
-        try
-        {
-            std::stof(c.value);
-        }
-        catch (...)
-        {
-            std::cout << clr::yellow << "Wrong value " << c.value << " for constant "
-                      << c.name << ":" << c.type << clr::reset << std::endl;
-            continue;
-        }
-        if (stnd == standard.end())
-            std::cout << clr::yellow << "Unknown type for constant "
-                      << c.name << ": " << c.type << clr::reset << std::endl;
-        file << "static const " << stnd->second << " " << c.name << " = " << c.value << ";" << std::endl;
-    }
-    // === =============================== ===
-    // ==               enums               ==
-    // === =============================== ===
-    for (const auto &en : m_enums)
-    {
-        file << "enum class " << en.first << std::endl;
-        file << "{" << std::endl;
-        for (auto descr = en.second.begin(); descr != en.second.end();)
-        {
-            file << "    " << descr->first << " = " << descr->second;
-            ++descr;
-            if (descr != en.second.end())
-                file << ",";
-            file << std::endl;
-        }
-        file << "};" << std::endl;
-        file << "static const char* " << en.first << "_str(const " << en.first << "& id)" << std::endl;
-        file << "{" << std::endl;
-        file << "    switch (id)" << std::endl;
-        file << "    {" << std::endl;
-        for (auto descr = en.second.begin(); descr != en.second.end(); ++descr)
-        {
-            file << "    case " << en.first << "::" << descr->first << ": return \"" << descr->first << "\";" << std::endl;
-        }
-
-        file << "    default: return \"_?unknown_" << en.first << "?_\";" << std::endl;
-        file << "    }" << std::endl;
-        file << "}" << std::endl;
-        file << std::endl;
-    }
-    file << std::endl;
-    // === =============================== ===
-    // ==              classes              ==
-    // === =============================== ===
-    //for (const auto &st : m_structs)
-    //{
-    //    file << "class " << st.name << ";" << std::endl;
-    //}
-    //file << std::endl;
-    for (const auto &st : m_structs)
-    {
-        const uint32_t optionalCount = st.optionalCount;
-        const uint32_t staticCount = st.fields.size() - optionalCount;
-        const uint32_t nameHash = MurmurHash3_x86_32(st.name.data(), st.name.size(), m_schemaHash);
-        const uint16_t classId = (nameHash >> 16) ^ (nameHash & 0xffff);
-        uint32_t builtInCount = 0;
-        file << "class " << st.name << std::endl;
-        file << "{" << std::endl;
-        file << "public:" << std::endl;
-        file << "    " << st.name << "(const uint32_t reserve = 0)" << std::endl;
-        file << "    {" << std::endl;
-        file << "        create(reserve);" << std::endl;
-        file << "    }" << std::endl;
-        file << "    " << st.name << "(void* from_)" << std::endl;
-        file << "    {" << std::endl;
-        file << "        from(from_);" << std::endl;
-        file << "    }" << std::endl;
-        file << "    " << st.name << "(const void* from_)" << std::endl;
-        file << "    {" << std::endl;
-        file << "        from(from_);" << std::endl;
-        file << "    }" << std::endl;
-        file << "    " << st.name << "(std::shared_ptr<std::vector<uint8_t>> externalBuffer)" << std::endl;
-        file << "    {" << std::endl;
-        file << "        create(externalBuffer);" << std::endl;
-        file << "    }" << std::endl;
-        file << std::endl;
-        // === =============================== ===
-        // ==             ids staff             ==
-        // === =============================== ===
-        file << "    enum class ids" << std::endl;
-        file << "    {" << std::endl;
-        for (const auto &member : st.fields)
-        {
-            if (member.isBuiltIn)
-                builtInCount++;
-            file << "        " << member.name << "," << std::endl;
-        }
-        file << "        _size_" << std::endl;
-        file << "    };" << std::endl;
-        file << "    static const char* name(const ids& id)" << std::endl;
-        file << "    {" << std::endl;
-        file << "        switch (id)" << std::endl;
-        file << "        {" << std::endl;
-        for (const auto &member : st.fields)
-        {
-            file << "        case ids::" << member.name << ": return \"" << member.name << "\"; " << std::endl;
-        }
-        file << "        default: return \"_?unknown_name?_\";" << std::endl;
-        file << "        }" << std::endl;
-        file << "    }" << std::endl;
-        file << std::endl;
-        file << "    enum class types" << std::endl;
-        file << "    {" << std::endl;
-        file << "        int8, uint8, int8a, uint8a," << std::endl;
-        file << "        int16, uint16, int16a, uint16a," << std::endl;
-        file << "        int32, uint32, int32a, uint32a," << std::endl;
-        file << "        int64, uint64, int64a, uint64a," << std::endl;
-        file << "        float32, float32a, float64, float64a," << std::endl;
-        file << "        bytes";
-        for (uint32_t i = 0; i < st.fields.size(); i++)
-        {
-            const auto &member = st.fields[i];
-            if (member.isBuiltIn)
-                continue;
-            file << "," << std::endl << "        " << member.type << ", " << member.type << "a";
-        }
-        file << "," << std::endl << "        unknown" << std::endl;
-        file << "    };" << std::endl;
-        file << std::endl;
-        // === =============================== ===
-        // ==       main has,get,set,size       ==
-        // === =============================== ===
-        file << "    uint32_t has(const ids& id) const" << std::endl;
-        file << "    {" << std::endl;
-        file << "        return caddress(id, cgetTable());" << std::endl;
-        file << "    }" << std::endl;
-        file << "    uint8_t* get(const ids& id)" << std::endl;
-        file << "    {" << std::endl;
-        file << "        Table* table = getTable();" << std::endl;
-        file << "        uint8_t* ptr = to();" << std::endl;
-        file << "        switch (id)" << std::endl;
-        file << "        {" << std::endl;
-        for (uint32_t i = 0; i < st.fields.size(); i++)
-        {
-            const auto &member = st.fields[i];
-            if (i < staticCount)
-            {
-                file << "        case ids::" << member.name << ":" << std::endl;
-                file << "            return reinterpret_cast<uint8_t*>(&table->" << member.name << ");" << std::endl;
-            }
-            else
-            {
-                file << "        case ids::" << member.name << ":" << std::endl;
-            }
-        }
-        if (optionalCount)
-        {
-            file << "            return &ptr[address(id, table) + sizeof(uint32_t)];" << std::endl;
-        }
-        file << "        default:" << std::endl;
-        file << "            return nullptr;" << std::endl;
-        file << "        }" << std::endl;
-        file << "    }" << std::endl;
-        file << "    const uint8_t* cget(const ids& id) const" << std::endl;
-        file << "    {" << std::endl;
-        file << "        const Table* table = cgetTable();" << std::endl;
-        file << "        const uint8_t* ptr = cto();" << std::endl;
-        file << "        switch (id)" << std::endl;
-        file << "        {" << std::endl;
-        for (uint32_t i = 0; i < st.fields.size(); i++)
-        {
-            const auto &member = st.fields[i];
-            if (i < staticCount)
-            {
-                file << "        case ids::" << member.name << ":" << std::endl;
-                file << "            return reinterpret_cast<const uint8_t*>(&table->" << member.name << ");" << std::endl;
-            }
-            else
-            {
-                file << "        case ids::" << member.name << ":" << std::endl;
-            }
-        }
-        if (optionalCount)
-        {
-            file << "            return &ptr[caddress(id, table) + sizeof(uint32_t)];" << std::endl;
-        }
-        file << "        default:" << std::endl;
-        file << "            return nullptr;" << std::endl;
-        file << "        }" << std::endl;
-        file << "    }" << std::endl;
-        file << "    void set(const ids& id, const uint32_t size, const void* data)" << std::endl;
-        file << "    {" << std::endl;
-        file << "        switch (id)" << std::endl;
-        file << "        {" << std::endl;
-        for (uint32_t i = 0; i < st.fields.size(); i++)
-        {
-            const auto &member = st.fields[i];
-            if (i < staticCount)
-            {
-                file << "        case ids::" << member.name << ":" << std::endl;
-                file << "            if (data)" << std::endl;
-                file << "                _inner_::copybybytes(data, &getTable()->" << member.name << ", size);" << std::endl;
-                file << "            break;" << std::endl;
-            }
-            else
-            {
-                break;
-            }
-        }
-        file << "        default:" << std::endl;
-        if (optionalCount)
-        {
-            file << "        {" << std::endl;
-            file << "            uint32_t offset = has(id);" << std::endl;
-            file << "            if (offset == 0)" << std::endl;
-            file << "            {" << std::endl;
-            file << "                offset = insert(size + sizeof(uint32_t));" << std::endl;
-            file << "                if (!offset)" << std::endl;
-            file << "                    return;" << std::endl;
-            file << "                *reinterpret_cast<uint32_t*>(&m_buffer->data()[offset]) = size;" << std::endl;
-            file << "                address(id, getTable()) = offset;" << std::endl;
-            file << "            }" << std::endl;
-            file << "            if (data)" << std::endl;
-            file << "                _inner_::copybybytes(data, &m_buffer->data()[offset + sizeof(uint32_t)], size);" << std::endl;
-            file << "            break;" << std::endl;
-            file << "        }" << std::endl;
-        }
-        else
-        {
-            file << "            break;" << std::endl;
-        }
-        file << "        }" << std::endl;
-        file << "    }" << std::endl;
-        file << "    static types type(const ids& id)" << std::endl;
-        file << "    {" << std::endl;
-        file << "        switch (id)" << std::endl;
-        file << "        {" << std::endl;
-        for (uint32_t i = 0; i < st.fields.size(); i++)
-        {
-            const auto &member = st.fields[i];
-            file << "        case ids::" << member.name << ": return types::" << member.type;
-            if (member.isArray && member.type != tokenBytes)
-                file << "a";
-            file << ";" << std::endl;
-        }
-        file << "        default: return types::unknown;" << std::endl;
-        file << "        }" << std::endl;
-        file << "    }" << std::endl;
-        file << "    uint32_t size(const ids& id) const" << std::endl;
-        file << "    {" << std::endl;
-        file << "        uint8_t* ptr = m_from ? m_from : &m_buffer->data()[0];" << std::endl;
-        file << "        Table *table = reinterpret_cast<Table*>(&ptr[sizeof(_inner_::header)]);" << std::endl;
-        file << "        const uint32_t offset = caddress(id, table);" << std::endl;
-        file << "        return *reinterpret_cast<uint32_t*>(&ptr[offset]);" << std::endl;
-        file << "    }" << std::endl;
-        file << std::endl;
-        // === =============================== ===
-        // ==           fields staff            ==
-        // === =============================== ===
-        for (const auto &member : st.fields)
-        {
-            const std::string *type;
-            const auto &stType = standard.find(member.type);
-            if (stType == standard.end())
-                type = &member.type;
-            else
-                type = &stType->second;
-            const std::string &name = member.name;
-            const bool &isArray = member.isArray;
-            const bool &isOptional = member.isOptional;
-            const bool &isBuiltIn = member.isBuiltIn;
-            // === =============================== ===
-            // ==                has                ==
-            // === =============================== ===
-            file << "    bool has_" << name << "() const" << std::endl;
-            file << "    {" << std::endl;
-            if (isOptional)
-            {
-                file << "        return has(ids::" << name << ") != 0;" << std::endl;
-            }
-            else
-            {
-                file << "        return true;" << std::endl;
-            }
-            file << "    }" << std::endl;
-            // === =============================== ===
-            // ==               size                ==
-            // === =============================== ===
-            file << "    uint32_t size_" << name << "() const" << std::endl;
-            file << "    {" << std::endl;
-            if (isBuiltIn)
-            {
-                if (isOptional)
-                {
-                    if (*type == tokenBytes)
-                    {
-                        file << "        return size(ids::" << name << ");" << std::endl;
-                    }
-                    else if (isArray)
-                    {
-                        file << "        return size(ids::" << name << ") / sizeof(" << *type << ");" << std::endl;
-                    }
-                    else
-                    {
-                        file << "        return size(ids::" << name << ");" << std::endl;
-                    }
-                }
-                else
-                {
-                    file << "        return sizeof(" << *type << ");" << std::endl;
-                }
-            }
-            else
-            {
-                if (isArray)
-                {
-                    file << "        return size(ids::" << name << ") / sizeof(" << *type << "::Table);" << std::endl;
-                }
-                else
-                {
-                    file << "        return size(ids::" << name << ") / sizeof(" << *type << "::Table);" << std::endl;
-                }
-            }
-            file << "    }" << std::endl;
-            // === =============================== ===
-            // ==                get                ==
-            // === =============================== ===
-            if (isBuiltIn)
-            {
-                if (isOptional)
-                {
-                    if (*type == tokenBytes)
-                    {
-                        file << "    const uint8_t* get_" << name << "()" << std::endl;
-                        file << "    {" << std::endl;
-                        file << "        return reinterpret_cast<const uint8_t*>(get(ids::" << name << "));" << std::endl;
-                    }
-                    else if (isArray)
-                    {
-                        file << "    const " << *type << "* get_" << name << "()" << std::endl;
-                        file << "    {" << std::endl;
-                        file << "        return reinterpret_cast<" << *type << "*>(get(ids::" << name << "));" << std::endl;
-                        file << "    }" << std::endl;
-                        file << "    const " << *type << "& get_" << name << "(const uint32_t index) const" << std::endl;
-                        file << "    {" << std::endl;
-                        file << "        const " << *type << "* ptr = reinterpret_cast<const " << *type << "*>(cget(ids::" << name << "));" << std::endl;
-                        file << "        if (!ptr)" << std::endl;
-                        file << "            throw std::logic_error(\"Nullptr\");" << std::endl;
-                        file << "        return ptr[index];" << std::endl;
-                    }
-                    else
-                    {
-                        file << "    " << *type << " get_" << name << "() const" << std::endl;
-                        file << "    {" << std::endl;
-                        file << "        " << *type << " dst;" << std::endl;
-                        file << "        _inner_::copybybytes(cget(ids::" << name << "), &dst, sizeof(" << *type << "));" << std::endl;
-                        file << "        return dst;" << std::endl;
-                    }
-                }
-                else
-                {
-                    file << "    " << *type << " get_" << name << "() const" << std::endl;
-                    file << "    {" << std::endl;
-                    file << "        " << *type << " dst;" << std::endl;
-                    file << "        _inner_::copybybytes(cget(ids::" << name << "), &dst, sizeof(" << *type << "));" << std::endl;
-                    file << "        return dst;" << std::endl;
-                }
-            }
-            else
-            {
-                if (isArray)
-                {
-                    file << "    " << *type << "& get_" << name << "(const uint32_t index)" << std::endl;
-                    file << "    {" << std::endl;
-                    file << "        if (index >= custom." << name << ".size())" << std::endl;
-                    file << "            throw std::logic_error(\"Nullref\");" << std::endl;
-                    file << "        return custom." << name << "[index];" << std::endl;
-                }
-                else
-                {
-                    file << "    " << *type << "& get_" << name << "()" << std::endl;
-                    file << "    {" << std::endl;
-                    file << "        if (custom." << name << ".empty())" << std::endl;
-                    file << "            throw std::logic_error(\"Nullref\");" << std::endl;
-                    file << "        return custom." << name << "[0];" << std::endl;
-                }
-            }
-            file << "    }" << std::endl;
-            // === =============================== ===
-            // ==                set                ==
-            // === =============================== ===
-            if (isBuiltIn)
-            {
-                if (isOptional)
-                {
-                    if (*type == tokenBytes)
-                    {
-                        file << "    void set_" << name << "(const uint32_t numberOfBytes, const void* data)" << std::endl;
-                        file << "    {" << std::endl;
-                        file << "        set(ids::" << name << ", numberOfBytes, data);" << std::endl;
-                    }
-                    else if (isArray)
-                    {
-                        file << "    void set_" << name << "(const uint32_t numberOfElements, const " << *type << "* data = nullptr)" << std::endl;
-                        file << "    {" << std::endl;
-                        file << "        set(ids::" << name << ", numberOfElements * sizeof(" << *type << "), data);" << std::endl;
-                        file << "    }" << std::endl;
-                        file << "    void set_" << name << "(const uint32_t index, const " << *type << "& element)" << std::endl;
-                        file << "    {" << std::endl;
-                        file << "        " << *type << "* ptr = reinterpret_cast<" << *type << "*>(get(ids::" << name << "));" << std::endl;
-                        file << "        if (!ptr)" << std::endl;
-                        file << "            throw std::logic_error(\"Nullptr\");" << std::endl;
-                        file << "        _inner_::copybybytes(&element, &ptr[index], sizeof(" << *type << "));" << std::endl;
-                    }
-                    else
-                    {
-                        file << "    void set_" << name << "(const " << *type << "& " << name << ")" << std::endl;
-                        file << "    {" << std::endl;
-                        file << "        set(ids::" << name << ", &" << name << ", sizeof(" << *type << "));" << std::endl;
-                    }
-                }
-                else
-                {
-                    file << "    void set_" << name << "(const " << *type << "& " << name << ")" << std::endl;
-                    file << "    {" << std::endl;
-                    file << "        _inner_::copybybytes(&" << name << ", get(ids::" << name << "), sizeof(" << *type << "));" << std::endl;
-                }
-            }
-            else
-            {
-                if (isArray)
-                {
-                    file << "    void set_" << name << "(const uint32_t numberOfElements)" << std::endl;
-                    file << "    {" << std::endl;
-                    file << "        if (!custom." << name << ".empty())" << std::endl;
-                    file << "            throw std::logic_error(\"Already setted\");" << std::endl;
-                    file << "        set(ids::" << name << ", nullptr, numberOfElements * sizeof(" << *type << "::Table));" << std::endl;
-                    file << "        custom." << name << ".resize(numberOfElements);" << std::endl;
-                    file << "        Table *table = getTable();" << std::endl;
-                    file << "        for (uint32_t i = 0; i < numberOfElements; ++i)" << std::endl;
-                    file << "        {" << std::endl;
-                    file << "            custom." << name << "[i].m_table = address(ids::" << name << ", table) + sizeof(" << *type << "::Table) * i + sizeof(uint32_t);" << std::endl;
-                    file << "            custom." << name << "[i].m_buffer = m_buffer;" << std::endl;
-                    file << "        }" << std::endl;
-                }
-                else
-                {
-                    file << "    void set_" << name << "()" << std::endl;
-                    file << "    {" << std::endl;
-                    file << "        if (!custom." << name << ".empty())" << std::endl;
-                    file << "            throw std::logic_error(\"Already setted\");" << std::endl;
-                    file << "        set(ids::" << name << ", nullptr, sizeof(" << *type << "::Table));" << std::endl;
-                    file << "        custom." << name << ".resize(1);" << std::endl;
-                    file << "        Table *table = getTable();" << std::endl;
-                    file << "        custom." << name << "[0].m_table = address(ids::" << name << ", table) + sizeof(uint32_t);" << std::endl;
-                    file << "        custom." << name << "[0].m_buffer = m_buffer;" << std::endl;
-                }
-            }
-            file << "    }" << std::endl;
-            file << std::endl;
-        }
         // === =============================== ===
         // ==           packet's staff          ==
         // === =============================== ===
@@ -646,198 +1130,5 @@ void INBCompiler::genCPP(const AST& ast, const std::string& outputSuffix) {
         file << "            return false;" << std::endl;
         file << "        m_buffer.reset();" << std::endl;
         file << "        m_from = reinterpret_cast<uint8_t*>(ptr);" << std::endl;
-        for (const auto &member : st.fields)
-        {
-            const bool &isBuiltIn = member.isBuiltIn;
-            if (isBuiltIn)
-                continue;
-            const std::string &name = member.name;
-            const bool &isOptional = member.isOptional;
-            const std::string &type = member.type;
-
-            file << "        if (getTable()->__" << name << ")" << std::endl;
-            file << "        {" << std::endl;
-            file << "            const uint32_t number = size(ids::" << name << ") / sizeof(" << type << "::Table);" << std::endl;
-            file << "            custom." << name << ".reserve(number);" << std::endl;
-            file << "            for (uint32_t i = 0; i < number; ++i)" << std::endl;
-            file << "            {" << std::endl;
-            file << "                custom." << name << ".emplace_back();" << std::endl;
-            file << "                custom." << name << ".back().from(ptr);" << std::endl;
-            file << "                auto table = reinterpret_cast<const " << type << "::Table*>(ptr + getTable()->__" << name << " + sizeof(uint32_t) + sizeof(" << type << "::Table) * i);" << std::endl;
-            file << "                custom." << name << ".back().m_table = reinterpret_cast<const uint8_t*>(table) - ptr;" << std::endl;
-            file << "            }" << std::endl;
-            file << "        }" << std::endl;
-        }
-        file << "        return true;" << std::endl;
-        file << "    }" << std::endl;
-        file << "    bool from(const void* ptr)" << std::endl;
-        file << "    {" << std::endl;
-        file << "        if (!ptr)" << std::endl;
-        file << "            return false;" << std::endl;
-        file << "        const _inner_::header* h = reinterpret_cast<const _inner_::header*>(ptr);" << std::endl;
-        file << "        if (h->signature0 != 'i' ||" << std::endl;
-        file << "            h->signature1 != 'b' ||" << std::endl;
-        file << "            h->type != " << std::to_string(classId) << ")" << std::endl;
-        file << "            return false;" << std::endl;
-        file << "        m_buffer.reset();" << std::endl;
-        file << "        m_from = reinterpret_cast<uint8_t*>(const_cast<void*>(ptr));" << std::endl;
-        for (const auto &member : st.fields)
-        {
-            const bool &isBuiltIn = member.isBuiltIn;
-            if (isBuiltIn)
-                continue;
-            const std::string &name = member.name;
-            const bool &isOptional = member.isOptional;
-            const std::string &type = member.type;
-
-            file << "        if (getTable()->__" << name << ")" << std::endl;
-            file << "        {" << std::endl;
-            file << "            const uint32_t number = size(ids::" << name << ") / sizeof(" << type << "::Table);" << std::endl;
-            file << "            custom." << name << ".reserve(number);" << std::endl;
-            file << "            for (uint32_t i = 0; i < number; ++i)" << std::endl;
-            file << "            {" << std::endl;
-            file << "                custom." << name << ".emplace_back();" << std::endl;
-            file << "                custom." << name << ".back().from(ptr);" << std::endl;
-            file << "                auto table = reinterpret_cast<const " << type << "::Table*>(ptr + getTable()->__" << name << " + sizeof(uint32_t) + sizeof(" << type << "::Table) * i);" << std::endl;
-            file << "                custom." << name << ".back().m_table = reinterpret_cast<const uint8_t*>(table) - ptr;" << std::endl;
-            file << "            }" << std::endl;
-            file << "        }" << std::endl;
-        }
-        file << "        return true;" << std::endl;
-        file << "    }" << std::endl;
-        file << "    uint8_t* to()" << std::endl;
-        file << "    {" << std::endl;
-        file << "        if (m_from)" << std::endl;
-        file << "            return const_cast<uint8_t*>(m_from);" << std::endl;
-        file << "        else" << std::endl;
-        file << "            return m_buffer->data();" << std::endl;
-        file << "    }" << std::endl;
-        file << "    const uint8_t* cto() const" << std::endl;
-        file << "    {" << std::endl;
-        file << "        if (m_from)" << std::endl;
-        file << "            return m_from;" << std::endl;
-        file << "        else" << std::endl;
-        file << "            return m_buffer->data();" << std::endl;
-        file << "    }" << std::endl;
-        file << "    uint32_t size() const" << std::endl;
-        file << "    {" << std::endl;
-        file << "        if (m_from)" << std::endl;
-        file << "            return 0;" << std::endl;
-        file << "        else" << std::endl;
-        file << "            return static_cast<uint32_t>(m_buffer->size());" << std::endl;
-        file << "    }" << std::endl;
-        file << std::endl;
-        for (const auto &member : st.friends)
-            file << "    friend class " << member << ";" << std::endl;
-        file << "private:" << std::endl;
-        file << "    #pragma pack(push, 1)" << std::endl;
-        file << "    struct Table" << std::endl;
-        file << "    {" << std::endl;
-        for (const auto &member : st.fields)
-        {
-            const std::string &name = member.name;
-            const bool &isOptional = member.isOptional;
-            const std::string *type;
-            const auto &stType = standard.find(member.type);
-            if (stType == standard.end())
-                type = &member.type;
-            else
-                type = &stType->second;
-            if (isOptional)
-                file << "        uint32_t __" << name << " = 0;" << std::endl;
-            else
-                file << "        " << *type << " " << name << ";" << std::endl;
-        }
-        file << "    };" << std::endl;
-        file << "    #pragma pack(pop)" << std::endl;
-        file << std::endl;
-        file << "    Table* getTable()" << std::endl;
-        file << "    {" << std::endl;
-        file << "        return reinterpret_cast<Table*>(&to()[m_table]);" << std::endl;
-        file << "    }" << std::endl;
-        file << "    const Table* cgetTable() const" << std::endl;
-        file << "    {" << std::endl;
-        file << "        return reinterpret_cast<const Table*>(&cto()[m_table]);" << std::endl;
-        file << "    }" << std::endl;
-        file << "    uint32_t insert(const uint32_t size)" << std::endl;
-        file << "    {" << std::endl;
-        file << "        if (m_from)" << std::endl;
-        file << "            return 0;" << std::endl;
-        file << "        else" << std::endl;
-        file << "        {" << std::endl;
-        file << "            const uint32_t offset = static_cast<uint32_t>(m_buffer->size());" << std::endl;
-        file << "            m_buffer->resize(m_buffer->size() + size);" << std::endl;
-        file << "            return offset;" << std::endl;
-        file << "        }" << std::endl;
-        file << "    }" << std::endl;
-        file << "    uint32_t& address(const ids& id, Table* table)" << std::endl;
-        file << "    {" << std::endl;
-        file << "        switch (id)" << std::endl;
-        file << "        {" << std::endl;
-        for (const auto &member : st.fields)
-        {
-            const std::string &name = member.name;
-            const bool &isOptional = member.isOptional;
-            //const std::string *type;
-            //const auto &stType = standard.find(member.second.type);
-            //if (stType == standard.end())
-            //    type = &member.second.type;
-            //else
-            //    type = &stType->second;
-            if (!isOptional)
-                continue;
-            file << "        case ids::" << name << ": return table->__" << name << ";" << std::endl;
-        }
-        file << "        default: return _inner_::zero;" << std::endl;
-        file << "        }" << std::endl;
-        file << "    }" << std::endl;
-        file << "    uint32_t caddress(const ids& id, const Table* table) const" << std::endl;
-        file << "    {" << std::endl;
-        file << "        switch (id)" << std::endl;
-        file << "        {" << std::endl;
-        for (const auto &member : st.fields)
-        {
-            const std::string &name = member.name;
-            const bool &isOptional = member.isOptional;
-            if (!isOptional)
-                continue;
-            file << "        case ids::" << name << ": return table->__" << name << ";" << std::endl;
-        }
-        file << "        default: return _inner_::zero;" << std::endl;
-        file << "        }" << std::endl;
-        file << "    }" << std::endl;
-        file << std::endl;
-        if (st.fields.size() - builtInCount)
-        {
-            file << "    struct" << std::endl;
-            file << "    {" << std::endl;
-            for (const auto &member : st.fields)
-            {
-                const bool &isBuiltIn = member.isBuiltIn;
-                if (isBuiltIn)
-                    continue;
-                const std::string &name = member.name;
-                const std::string &type = member.type;
-                file << "        std::vector<" << type << "> " << name << ";" << std::endl;
-            }
-            file << "    } custom;" << std::endl;
-            file << std::endl;
-        }
-        file << "    uint8_t* m_from = nullptr;" << std::endl;
-        file << "    std::shared_ptr<std::vector<uint8_t>> m_buffer;" << std::endl;
-        file << "    uint32_t m_table = sizeof(_inner_::header);" << std::endl;
-        file << "};" << std::endl;
-        file << std::endl;
-    }
-    for (uint32_t i = 0; i < m_namespaces.size(); i++)
-        file << "}" << std::endl;
-    //for (const auto &ns : m_namespaces)
-    //{
-    //    file << "namespace " << ns << std::endl;
-    //    file << "{" << ns << std::endl;
-    //}
-    file << std::endl;
-    file << "#endif // " << filedef << std::endl;
-
     */
 }
