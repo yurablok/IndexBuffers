@@ -6,7 +6,7 @@
 
 int main(int argc, char **argv) {
     std::string inputName;
-    std::string outputName;
+    std::string outputSuffix;
     bool detailed = false;
     bool printVersion = false;
     bool stopOnFirstError = false;
@@ -17,9 +17,9 @@ int main(int argc, char **argv) {
         = clara::Opt(inputName, "input")
             ["-i"]["--input"]
             ("Specifies input IndexBuffers schema file that has .ibs format")
-        | clara::Opt(outputName, "input")
-            ["-o"]["--output"]
-            ("Specifies output generated C++ header")
+        | clara::Opt(outputSuffix, "suffix")
+            ["-s"]["--suffix"]
+            ("Specifies output suffix for generated C++ headers")
         | clara::Opt(detailed)
             ["-d"]["--detailed"]
             ("Print parsed info")
@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
         return 0;
     }
     if (printVersion) {
-        std::cout << "IndexBuffers Compiler v0.3-alpha" << std::endl;
+        std::cout << "IndexBuffers Compiler " << INBCompiler::version() << std::endl;
     }
     if (inputName.empty()) {
         std::cout << "The argument -i is required!" << std::endl;
@@ -47,13 +47,12 @@ int main(int argc, char **argv) {
         std::cout << "Wrong input schema file format" << std::endl;
         return 0;
     }
-    if (outputName.empty()) {
-        outputName = inputName.substr(0, dotPos);
-        outputName += "_generated.h";
+    if (outputSuffix.empty()) {
+        outputSuffix = "_generated";
     }
     INBCompiler compiler;
     compiler.setStopOnFirstError(stopOnFirstError);
     compiler.read(inputName, detailed);
-    compiler.write(outputName, Language::CPP);
+    compiler.write(outputSuffix, Language::CPP);
     return 0;
 }

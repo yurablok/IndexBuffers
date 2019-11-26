@@ -174,7 +174,7 @@ void INBCompiler::tokenize(const lines_t& lines, tokens_t& tokens) const {
     //system("pause");
 }
 
-bool INBCompiler::parse(ParsingMeta& meta) {
+bool INBCompiler::parse(AST::ParsingMeta& meta) {
     tokens_it it = meta.tokens.cbegin();
     if (it != meta.tokens.cend() && it->str == strEndl) {
         next(meta, it, false);
@@ -262,7 +262,7 @@ bool INBCompiler::parse(ParsingMeta& meta) {
 }
 
 // (<+> | <->)? <\d>+
-bool INBCompiler::parseValueInt(ParsingMeta& meta, tokens_it& it,
+bool INBCompiler::parseValueInt(AST::ParsingMeta& meta, tokens_it& it,
     std::string& valueStr, const bool quiet) const {
 
     valueStr.clear();
@@ -338,7 +338,7 @@ bool INBCompiler::parseValueInt(ParsingMeta& meta, tokens_it& it,
 // <\d>+
 // <0>  (<b> | <B>) (<0> | <1>)+
 // <0>  (<x> | <X>) (<\d> | <[a-fA-F]>)+
-bool INBCompiler::parseValueUInt(ParsingMeta& meta, tokens_it& it,
+bool INBCompiler::parseValueUInt(AST::ParsingMeta& meta, tokens_it& it,
     std::string& valueStr, uint8_t& numeralSystem, const bool quiet) const {
 
     valueStr.clear();
@@ -507,7 +507,7 @@ bool INBCompiler::parseValueUInt(ParsingMeta& meta, tokens_it& it,
 
 // (<+> | <->)? <\d>+ (<.> <\d>+)?
 // (<+> | <->)? <\d>+ <.> <\d>+ <e> (<+> | <->) <\d>+
-bool INBCompiler::parseValueFloat(ParsingMeta& meta, tokens_it& it,
+bool INBCompiler::parseValueFloat(AST::ParsingMeta& meta, tokens_it& it,
     std::string& valueStr, const bool quiet) const {
 
     valueStr.clear();
@@ -635,7 +635,7 @@ bool INBCompiler::parseValueFloat(ParsingMeta& meta, tokens_it& it,
     return false;
 }
 
-bool INBCompiler::parseValue(ParsingMeta& meta, tokens_it& it, 
+bool INBCompiler::parseValue(AST::ParsingMeta& meta, tokens_it& it,
     const kw& expectedValueType, std::string& valueStr,
     const bool quiet) const {
 
@@ -866,7 +866,7 @@ bool INBCompiler::parseValue(ParsingMeta& meta, tokens_it& it,
 }
 
 // <include> <"> <filepath> <">
-bool INBCompiler::parseInclude(ParsingMeta& meta, tokens_it& it) {
+bool INBCompiler::parseInclude(AST::ParsingMeta& meta, tokens_it& it) {
     if (next(meta, it, true, true) != next_r('y', 'y')) { // <include> <?>
         return false;
     }
@@ -903,7 +903,7 @@ bool INBCompiler::parseInclude(ParsingMeta& meta, tokens_it& it) {
         if (m_detailed) {
             std::cout << "INCLUDE: " << clr::blue << includePath << clr::reset << std::endl;
         }
-        ParsingMeta includeMeta;
+        AST::ParsingMeta includeMeta;
         if (!loadFileToLines(includePath, includeMeta.lines)) {
             printErrorWrongPath(includePath);
             return false;
@@ -911,6 +911,9 @@ bool INBCompiler::parseInclude(ParsingMeta& meta, tokens_it& it) {
         tokenize(includeMeta.lines, includeMeta.tokens);
         m_processedFilesPaths.insert(includePath);
         includeMeta.path = includePath;
+        m_ast.filesMeta.emplace_back();
+        m_ast.filesMeta.back().name = includeMeta.path;
+        includeMeta.fileMeta = &m_ast.filesMeta.back();
         if (!parse(includeMeta)) {
             return false;
         }
@@ -922,7 +925,7 @@ bool INBCompiler::parseInclude(ParsingMeta& meta, tokens_it& it) {
 }
 
 // <namespace> <EXTERNAL::INTERNAL>
-bool INBCompiler::parseNamespace(ParsingMeta& meta, tokens_it& it) {
+bool INBCompiler::parseNamespace(AST::ParsingMeta& meta, tokens_it& it) {
     if (!meta.namespace_.empty()) {
         printErrorNamespaceLimit(meta, it);
         skipLine(meta, it);
@@ -973,7 +976,7 @@ bool INBCompiler::parseNamespace(ParsingMeta& meta, tokens_it& it) {
 }
 
 // <const> <TYPE> <NAME> <=> <VALUE>
-bool INBCompiler::parseConst(ParsingMeta& meta, tokens_it& it) {
+bool INBCompiler::parseConst(AST::ParsingMeta& meta, tokens_it& it) {
     const std::string& line = meta.lines[it->line];
     if (next(meta, it, true, true) != next_r('y', 'y')) { // <const> <?>
         return false;
@@ -998,7 +1001,7 @@ bool INBCompiler::parseConst(ParsingMeta& meta, tokens_it& it) {
         skipLine(meta, it);
         return false;
     }
-    const ObjectMeta* checkObject = findObject(meta.namespace_, it->str);
+    const AST::ObjectMeta* checkObject = m_ast.findObject(meta.namespace_, it->str);
     if (checkObject != nullptr) { // <const> <TYPE> <NAME>
         printErrorNameAlreadyInUse(meta, it, checkObject);
         skipLine(meta, it);
@@ -1017,11 +1020,11 @@ bool INBCompiler::parseConst(ParsingMeta& meta, tokens_it& it) {
         return false;
     }
     const tokens_it itAtValue = it;
-    std::unique_ptr<ConstMeta> constMeta = std::make_unique<ConstMeta>();
+    std::unique_ptr<AST::ConstMeta> constMeta = std::make_unique<AST::ConstMeta>();
     constMeta->type = constType;
     constMeta->name = itConstName->str;
 
-    const ObjectMeta* resultObjectMeta = nullptr;
+    const AST::ObjectMeta* resultObjectMeta = nullptr;
     kw resultKw = kw::UNDEFINED;
     uint32_t resultIdx = 0;
     if (parseValue(meta, it, constType, constMeta->valueStr, true)) {
@@ -1147,15 +1150,15 @@ bool INBCompiler::parseConst(ParsingMeta& meta, tokens_it& it) {
         }
         std::cout << clr::reset << std::endl;
     }
-    std::unique_ptr<ObjectMeta> objectMeta = std::make_unique<ObjectMeta>(
+    std::unique_ptr<AST::ObjectMeta> objectMeta = std::make_unique<AST::ObjectMeta>(
         meta.path, itConstName->line, itConstName->pos);
     objectMeta->putConstMeta(std::move(constMeta));
-    insertObject(meta.namespace_, itConstName->str, std::move(objectMeta));
+    m_ast.insertObject(meta, itConstName->str, std::move(objectMeta));
     return true;
 }
 
 // <enum> <NAME> (<:> <TYPE>)? <{> (<FIELD> (<=> <NUMBER>)?)+ <}>
-bool INBCompiler::parseEnum(ParsingMeta& meta, tokens_it& it) {
+bool INBCompiler::parseEnum(AST::ParsingMeta& meta, tokens_it& it) {
     if (next(meta, it, true, true) != next_r('y', 'y')) { // <enum> <?>
         return false;
     }
@@ -1168,13 +1171,13 @@ bool INBCompiler::parseEnum(ParsingMeta& meta, tokens_it& it) {
         skipLine(meta, it);
         return false;
     }
-    const ObjectMeta* checkObject = findObject(meta.namespace_, it->str);
+    const AST::ObjectMeta* checkObject = m_ast.findObject(meta.namespace_, it->str);
     if (checkObject != nullptr) { // <enum> <NAME>
         printErrorNameAlreadyInUse(meta, it, checkObject);
         skipLine(meta, it);
         return false;
     }
-    std::unique_ptr<EnumMeta> enumMeta = std::make_unique<EnumMeta>();
+    std::unique_ptr<AST::EnumMeta> enumMeta = std::make_unique<AST::EnumMeta>();
     enumMeta->name = it->str; // <enum> <NAME>
     const tokens_it itAtEnumName = it;
     if (next(meta, it, true) != next_r('y')) { // <enum> <NAME> <?>
@@ -1354,10 +1357,10 @@ bool INBCompiler::parseEnum(ParsingMeta& meta, tokens_it& it) {
         std::cout << '}' << std::endl;
     }
 
-    std::unique_ptr<ObjectMeta> objectMeta = std::make_unique<ObjectMeta>(
+    std::unique_ptr<AST::ObjectMeta> objectMeta = std::make_unique<AST::ObjectMeta>(
         meta.path, itAtEnumName->line, itAtEnumName->pos);
     objectMeta->putEnumMeta(std::move(enumMeta));
-    insertObject(meta.namespace_, itAtEnumName->str, std::move(objectMeta));
+    m_ast.insertObject(meta, itAtEnumName->str, std::move(objectMeta));
     return result;
 }
 
@@ -1371,7 +1374,7 @@ bool INBCompiler::parseEnum(ParsingMeta& meta, tokens_it& it) {
 //       = namespace::object::value
 //       = namespace::object.special
 //     ......
-bool INBCompiler::parseStruct(ParsingMeta& meta, tokens_it& it) {
+bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
     if (next(meta, it, true, true) != next_r('y', 'y')) { // <struct> <?>
         return false;
     }
@@ -1385,14 +1388,14 @@ bool INBCompiler::parseStruct(ParsingMeta& meta, tokens_it& it) {
         skipLine(meta, it);
         return false;
     }
-    const ObjectMeta* checkObject = findObject(meta.namespace_, it->str);
+    const AST::ObjectMeta* checkObject = m_ast.findObject(meta.namespace_, it->str);
     if (checkObject != nullptr) { // <struct> <?>
         printErrorNameAlreadyInUse(meta, it, checkObject);
         skipLine(meta, it);
         return false;
     }
     const tokens_it itAtStructName = it; // <struct> <NAME>
-    std::unique_ptr<StructMeta> structMeta = std::make_unique<StructMeta>();
+    std::unique_ptr<AST::StructMeta> structMeta = std::make_unique<AST::StructMeta>();
     structMeta->name = it->str;
     if (next(meta, it, true) != next_r('y')) { // <struct> <NAME> <?>
         return false;
@@ -1447,8 +1450,8 @@ bool INBCompiler::parseStruct(ParsingMeta& meta, tokens_it& it) {
             break;
         }
         ++errorsCount;
-        std::unique_ptr<StructFieldMeta> fieldPtr = std::make_unique<StructFieldMeta>();
-        StructFieldMeta* field = fieldPtr.get();
+        std::unique_ptr<AST::StructFieldMeta> fieldPtr = std::make_unique<AST::StructFieldMeta>();
+        AST::StructFieldMeta* field = fieldPtr.get();
         kw keyword = kw::UNDEFINED;
         keyword = findKeyword(it->str);
         if (keyword == kw::Optional) {
@@ -1526,7 +1529,7 @@ bool INBCompiler::parseStruct(ParsingMeta& meta, tokens_it& it) {
                 }
                 const tokens_it itAtValue = it;
                 if (field->isBuiltIn) {
-                    const ObjectMeta* resultObjectMeta = nullptr;
+                    const AST::ObjectMeta* resultObjectMeta = nullptr;
                     kw resultKw = kw::UNDEFINED;
                     uint32_t resultIdx = 0;
                     if (parseValue(meta, it, field->typeKw, field->valueStr, true)) {
@@ -1615,7 +1618,7 @@ bool INBCompiler::parseStruct(ParsingMeta& meta, tokens_it& it) {
                     }
                 }
                 else {
-                    const ObjectMeta* resultObjectMeta = nullptr;
+                    const AST::ObjectMeta* resultObjectMeta = nullptr;
                     kw resultKw = kw::UNDEFINED;
                     uint32_t resultIdx = 0;
                     if (!findValue(meta, it, resultObjectMeta, resultKw, resultIdx)) {
@@ -1663,7 +1666,7 @@ bool INBCompiler::parseStruct(ParsingMeta& meta, tokens_it& it) {
                 }
                 else {
                     const tokens_it itAtValue = it;
-                    const ObjectMeta* arrayPtr = nullptr;
+                    const AST::ObjectMeta* arrayPtr = nullptr;
                     kw arrayKw = kw::UNDEFINED;
                     uint32_t arrayIdx = 0;
                     std::string arrayStr;
@@ -1871,13 +1874,13 @@ bool INBCompiler::parseStruct(ParsingMeta& meta, tokens_it& it) {
         return false;
     }
     std::sort(structMeta->fieldsVec.begin(), structMeta->fieldsVec.end(),
-        [](const StructFieldMeta* l, const StructFieldMeta* r) {
+        [](const AST::StructFieldMeta* l, const AST::StructFieldMeta* r) {
             return l->isOptional < r->isOptional;
         });
-    std::unique_ptr<ObjectMeta> objectMeta = std::make_unique<ObjectMeta>(
+    std::unique_ptr<AST::ObjectMeta> objectMeta = std::make_unique<AST::ObjectMeta>(
         meta.path, itAtStructName->line, itAtStructName->pos);
     objectMeta->putStructMeta(std::move(structMeta));
-    insertObject(meta.namespace_, itAtStructName->str, std::move(objectMeta));
+    m_ast.insertObject(meta, itAtStructName->str, std::move(objectMeta));
     return true;
 }
 
@@ -1885,7 +1888,7 @@ bool INBCompiler::parseStruct(ParsingMeta& meta, tokens_it& it) {
 //   (<NAMESPACE><:><:>)* <TYPE> <NAME> (<[> (<NAMESPACE><:><:>)* <CONSTANT> <]>)?
 //   ...
 // )+
-bool INBCompiler::parseUnion(ParsingMeta& meta, tokens_it& it) {
+bool INBCompiler::parseUnion(AST::ParsingMeta& meta, tokens_it& it) {
     if (next(meta, it, true, true) != next_r('y', 'y')) { // <union> <?>
         return false;
     }
@@ -1899,14 +1902,14 @@ bool INBCompiler::parseUnion(ParsingMeta& meta, tokens_it& it) {
         skipLine(meta, it);
         return false;
     }
-    const ObjectMeta* checkObject = findObject(meta.namespace_, it->str);
+    const AST::ObjectMeta* checkObject = m_ast.findObject(meta.namespace_, it->str);
     if (checkObject != nullptr) { // <union> <?>
         printErrorNameAlreadyInUse(meta, it, checkObject);
         skipLine(meta, it);
         return false;
     }
     const tokens_it itAtUnionName = it; // <union> <NAME>
-    std::unique_ptr<UnionMeta> unionMeta = std::make_unique<UnionMeta>();
+    std::unique_ptr<AST::UnionMeta> unionMeta = std::make_unique<AST::UnionMeta>();
     unionMeta->name = it->str;
     if (next(meta, it, true) != next_r('y')) { // <union> <NAME> <?>
         return false;
@@ -1936,8 +1939,8 @@ bool INBCompiler::parseUnion(ParsingMeta& meta, tokens_it& it) {
             break;
         }
         ++errorsCount;
-        std::unique_ptr<UnionFieldMeta> fieldPtr = std::make_unique<UnionFieldMeta>();
-        UnionFieldMeta* field = fieldPtr.get();
+        std::unique_ptr<AST::UnionFieldMeta> fieldPtr = std::make_unique<AST::UnionFieldMeta>();
+        AST::UnionFieldMeta* field = fieldPtr.get();
         kw keyword = kw::UNDEFINED;
         keyword = findKeyword(it->str);
         if (isBuiltInType(keyword)) {
@@ -2077,14 +2080,14 @@ bool INBCompiler::parseUnion(ParsingMeta& meta, tokens_it& it) {
         m_parsingErrorsCount += errorsCount;
         return false;
     }
-    std::unique_ptr<ObjectMeta> objectMeta = std::make_unique<ObjectMeta>(
+    std::unique_ptr<AST::ObjectMeta> objectMeta = std::make_unique<AST::ObjectMeta>(
         meta.path, itAtUnionName->line, itAtUnionName->pos);
     objectMeta->putUnionMeta(std::move(unionMeta));
-    insertObject(meta.namespace_, itAtUnionName->str, std::move(objectMeta));
+    m_ast.insertObject(meta, itAtUnionName->str, std::move(objectMeta));
     return true;
 }
 
-INBCompiler::next_r INBCompiler::next(const ParsingMeta& meta, tokens_it& it,
+INBCompiler::next_r INBCompiler::next(const AST::ParsingMeta& meta, tokens_it& it,
     const bool isATokenRequired,
     const bool isATokenRequiredAtLine) const {
 
@@ -2134,7 +2137,7 @@ INBCompiler::next_r INBCompiler::next(const ParsingMeta& meta, tokens_it& it,
     return next_r('n');
 }
 void INBCompiler::test_next() const {
-    ParsingMeta meta;
+    AST::ParsingMeta meta;
     meta.path = "void test_next()";
     tokens_it it;
     {
@@ -2214,7 +2217,7 @@ void INBCompiler::test_next() const {
     exit(0);
 }
 
-void INBCompiler::skipLine(const ParsingMeta& meta, tokens_it& it) const {
+void INBCompiler::skipLine(const AST::ParsingMeta& meta, tokens_it& it) const {
     while (true) {
         if (it == meta.tokens.cend()) {
             return;

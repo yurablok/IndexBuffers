@@ -27,11 +27,16 @@ INBCompiler::INBCompiler() {
     //test_next();
 }
 
+std::string INBCompiler::version()
+{
+    return "0.3-alpha";
+}
+
 void INBCompiler::read(const std::string& input, const bool detailed) {
     std::cout << "INPUT: " << input << std::endl;
     m_detailed = detailed;
 
-    ParsingMeta parsingMeta;
+    AST::ParsingMeta parsingMeta;
     if (!loadFileToLines(input, parsingMeta.lines)) {
         printErrorWrongPath(input);
         exit(0);
@@ -43,6 +48,9 @@ void INBCompiler::read(const std::string& input, const bool detailed) {
         exit(0);
     }
     m_processedFilesPaths.insert(parsingMeta.path);
+    m_ast.filesMeta.emplace_back();
+    m_ast.filesMeta.back().name = parsingMeta.path;
+    parsingMeta.fileMeta = &m_ast.filesMeta.back();
     m_parsingErrorsCount = 0;
     if (!parse(parsingMeta)) {
         exit(0);
@@ -56,13 +64,13 @@ void INBCompiler::read(const std::string& input, const bool detailed) {
         std::cout << '.' << clr::reset << std::endl;
         exit(0);
     }
-    calcSchemaHash();
+    m_ast.calcSchemaHash();
 }
 
-void INBCompiler::write(const std::string& output, const Language& lang) {
+void INBCompiler::write(const std::string& outputSuffix, const Language& lang) {
     switch (lang) {
     case Language::CPP:
-        genCPP(output);
+        genCPP(m_ast, outputSuffix);
         break;
     default:
         std::cout << clr::red << "Error: Unknown language code: "
@@ -70,7 +78,6 @@ void INBCompiler::write(const std::string& output, const Language& lang) {
         exit(0);
         //break;
     }
-    std::cout << clr::green << "OUTPUT: " << output << clr::reset << std::endl;
 }
 
 void INBCompiler::setStopOnFirstError(const bool stopOnFirstError)
@@ -255,40 +262,8 @@ char INBCompiler::checkScalarTypeMatchingRange(const kw typeKwSrc, const kw type
     return 0;
 }
 
-void INBCompiler::insertObject(const std::deque<std::string>& namespace_,
-    const std::string& name, std::unique_ptr<ObjectMeta> object) {
-
-    TreeNode* node = &m_objectsTree;
-    for (const auto& ns : namespace_) {
-        TreeNode* parent = node;
-        node = &node->namespaces[ns];
-        node->parent = parent;
-    }
-    object->parent = node;
-    object->namespace_ = namespace_;
-    node->objects[name] = std::move(object);
-}
-
-INBCompiler::ObjectMeta* INBCompiler::findObject(
-    const std::deque<std::string>& namespace_, const std::string& name) const {
-
-    const TreeNode* node = &m_objectsTree;
-    for (const auto& ns : namespace_) {
-        auto nodeIt = node->namespaces.find(ns);
-        if (nodeIt == node->namespaces.end()) {
-            return nullptr;
-        }
-        node = &nodeIt->second;
-    }
-    auto objectIt = node->objects.find(name);
-    if (objectIt == node->objects.end()) {
-        return nullptr;
-    }
-    return objectIt->second.get();
-}
-
-INBCompiler::ObjectMeta* INBCompiler::findObject(
-    const ParsingMeta& meta, tokens_it& it) const {
+AST::ObjectMeta* INBCompiler::findObject(
+    const AST::ParsingMeta& meta, tokens_it& it) const {
 
     std::deque<std::string> ns;
     for (uint32_t i = 0; i < 100; ++i) {
@@ -316,19 +291,19 @@ INBCompiler::ObjectMeta* INBCompiler::findObject(
     }
     std::string name = std::move(ns.back());
     ns.pop_back();
-    if (ObjectMeta* ptr = findObject(meta.namespace_, name)) {
+    if (AST::ObjectMeta* ptr = m_ast.findObject(meta.namespace_, name)) {
         return ptr;
     }
-    return findObject(ns, name);
+    return m_ast.findObject(ns, name);
 }
 
-bool INBCompiler::findValue(const ParsingMeta& meta, tokens_it& it,
-    const ObjectMeta*& resultObjectMeta, kw& resultKw, uint32_t& resultIdx) const {
+bool INBCompiler::findValue(const AST::ParsingMeta& meta, tokens_it& it,
+    const AST::ObjectMeta*& resultObjectMeta, kw& resultKw, uint32_t& resultIdx) const {
 
     resultObjectMeta = nullptr;
     resultKw = kw::UNDEFINED;
     resultIdx = 0;
-    const TreeNode* node = &m_objectsTree;
+    const AST::TreeNode* node = &m_ast.objectsTree;
     for (uint32_t i = 0; i < 100; ++i) {
         auto namespaceIt = node->namespaces.find(it->str);
         if (namespaceIt != node->namespaces.end()) {
@@ -363,7 +338,7 @@ bool INBCompiler::findValue(const ParsingMeta& meta, tokens_it& it,
         const auto itAtObject = it;
         const auto objectIt = node->objects.find(it->str);
         if (objectIt != node->objects.end()) {
-            const ObjectMeta* objectMeta = objectIt->second.get();
+            const AST::ObjectMeta* objectMeta = objectIt->second.get();
             const next_r nr = next(meta, it, false);
             if (nr == next_r('a', 'n') || it == meta.tokens.end()) {
                 if (objectMeta->type() != kw::Const) {
@@ -396,7 +371,7 @@ bool INBCompiler::findValue(const ParsingMeta& meta, tokens_it& it,
                     if (next(meta, it, true, true) != next_r('y', 'y')) {
                         return false;
                     }
-                    const EnumMeta* enumMeta = objectMeta->enumMeta();
+                    const AST::EnumMeta* enumMeta = objectMeta->enumMeta();
                     auto valueIdxIt = enumMeta->valuesMap.find(it->str);
                     if (valueIdxIt == enumMeta->valuesMap.end()) {
                         printErrorWrongToken(meta, it, "an existing value");
@@ -446,35 +421,8 @@ bool INBCompiler::findValue(const ParsingMeta& meta, tokens_it& it,
     return false;
 }
 
-void INBCompiler::calcSchemaHash() {
-    // uint32_t mm3 = 0;
-    // for (const auto &ns : m_namespaces) {
-    //     mm3 = MurmurHash3_x86_32(ns.data(), ns.size(), mm3);
-    // }
-    // //for (const auto &ct : m_constants) {
-    // //}
-    // for (const auto &en : m_enums) {
-    //     mm3 = MurmurHash3_x86_32(en.first.data(), en.first.size(), mm3);
-    //     for (const auto &f : en.second) {
-    //         mm3 = MurmurHash3_x86_32(f.first.data(), f.first.size(), mm3);
-    //         mm3 = MurmurHash3_x86_32(&f.second, sizeof(f.second), mm3);
-    //     }
-    // }
-    // for (const auto &st : m_structs) {
-    //     mm3 = MurmurHash3_x86_32(st.name.data(), st.name.size(), mm3);
-    //     for (const auto &f : st.fields) {
-    //         mm3 = MurmurHash3_x86_32(f.name.data(), f.name.size(), mm3);
-    //         mm3 = MurmurHash3_x86_32(f.type.data(), f.type.size(), mm3);
-    //         mm3 = MurmurHash3_x86_32(&f.isArray, sizeof(f.isArray), mm3);
-    //         mm3 = MurmurHash3_x86_32(&f.isBuiltIn, sizeof(f.isBuiltIn), mm3);
-    //         mm3 = MurmurHash3_x86_32(&f.isOptional, sizeof(f.isOptional), mm3);
-    //     }
-    // }
-    // m_schemaHash = mm3; //(mm3 << 16) ^ (mm3 & 0xffff);
-}
-
 void INBCompiler::printErrorImpl_ErrorAt(
-    const ParsingMeta& meta, const tokens_it& it,
+    const AST::ParsingMeta& meta, const tokens_it& it,
     const uint32_t tokenSize) const {
 
     if (it == meta.tokens.end() || meta.lines.empty()) {
@@ -505,7 +453,7 @@ void INBCompiler::printErrorImpl_ErrorAt(
     }
 }
 void INBCompiler::printWarningImpl_WarningAt(
-    const ParsingMeta& meta, const tokens_it& it,
+    const AST::ParsingMeta& meta, const tokens_it& it,
     const uint32_t tokenSize) const {
 
     if (it == meta.tokens.end() || meta.lines.empty()) {
@@ -535,20 +483,20 @@ void INBCompiler::printWarningImpl_WarningAt(
     }
 }
 void INBCompiler::printWarningAlreadyParsed(
-    const ParsingMeta& meta, const tokens_it& it) const {
+    const AST::ParsingMeta& meta, const tokens_it& it) const {
 
     printWarningImpl_WarningAt(meta, it);
     std::cout << "^ The file was already parsed." << clr::reset << std::endl;
 }
 void INBCompiler::printWarningCustom(
-    const ParsingMeta& meta, const tokens_it& it,
+    const AST::ParsingMeta& meta, const tokens_it& it,
     const std::string& message, const uint32_t tokenSize) const {
 
     printWarningImpl_WarningAt(meta, it, tokenSize);
     std::cout << "^ " << message << clr::reset << std::endl;
 }
 void INBCompiler::printErrorCustom(
-    const ParsingMeta& meta, const tokens_it& it,
+    const AST::ParsingMeta& meta, const tokens_it& it,
     const std::string& message, const uint32_t tokenSize) const {
 
     printErrorImpl_ErrorAt(meta, it, tokenSize);
@@ -559,20 +507,20 @@ void INBCompiler::printErrorWrongPath(const std::string& filePath) const {
     std::cout << "^ Wrong file path." << clr::reset << std::endl;
 }
 void INBCompiler::printErrorWrongPath(
-    const ParsingMeta& meta, const tokens_it& it) const {
+    const AST::ParsingMeta& meta, const tokens_it& it) const {
 
     printErrorImpl_ErrorAt(meta, it);
     std::cout << "^ Wrong file path." << clr::reset << std::endl;
 }
 void INBCompiler::printErrorUnexpectedEndl(
-    const ParsingMeta& meta, const tokens_it& it,
+    const AST::ParsingMeta& meta, const tokens_it& it,
     const std::string& explanation) const {
 
     printErrorImpl_ErrorAt(meta, it);
     std::cout << "^ Unexpected end of line. " << explanation << clr::reset << std::endl;
 }
 void INBCompiler::printErrorWrongToken(
-    const ParsingMeta& meta, const tokens_it& it,
+    const AST::ParsingMeta& meta, const tokens_it& it,
     const std::string& expected) const {
 
     printErrorImpl_ErrorAt(meta, it);
@@ -597,7 +545,7 @@ void INBCompiler::printErrorWrongToken(
     std::cout << clr::reset << std::endl;
 }
 void INBCompiler::printErrorWrongKeywordUsage(
-    const ParsingMeta& meta, const tokens_it& it) const {
+    const AST::ParsingMeta& meta, const tokens_it& it) const {
 
     printErrorImpl_ErrorAt(meta, it);
     std::cout << "^ Wrong using of keyword: ";
@@ -610,14 +558,14 @@ void INBCompiler::printErrorWrongKeywordUsage(
     std::cout << clr::reset << std::endl;
 }
 void INBCompiler::printErrorNamespaceLimit(
-    const ParsingMeta& meta, const tokens_it& it) const {
+    const AST::ParsingMeta& meta, const tokens_it& it) const {
 
     printErrorImpl_ErrorAt(meta, it);
     std::cout << "^ Only one namespace definition per file." << clr::reset << std::endl;
 }
 void INBCompiler::printErrorNameAlreadyInUse(
-    const ParsingMeta& meta, const tokens_it& it,
-    const ObjectMeta* firstDefinition) const {
+    const AST::ParsingMeta& meta, const tokens_it& it,
+    const AST::ObjectMeta* firstDefinition) const {
 
     printErrorImpl_ErrorAt(meta, it);
     std::cout << "^ The name \"" << it->str << "\" already in use";
@@ -631,7 +579,7 @@ void INBCompiler::printErrorNameAlreadyInUse(
     }
 }
 void INBCompiler::printErrorIncorrectName(
-    const ParsingMeta& meta, const tokens_it& it) const {
+    const AST::ParsingMeta& meta, const tokens_it& it) const {
 
     printErrorImpl_ErrorAt(meta, it);
     std::cout << "^ Incorrect name." << clr::reset << std::endl;

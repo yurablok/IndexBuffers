@@ -157,6 +157,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="ast_meta.h" />
     <ClInclude Include="clara.hpp" />
     <ClInclude Include="colored_cout.h" />
     <ClInclude Include="ibc.h" />
@@ -164,6 +165,7 @@
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ast_meta.cpp" />
     <ClCompile Include="ibc.cpp" />
     <ClCompile Include="ibc_parser.cpp" />
     <ClCompile Include="ibc_cpp.cpp" />
