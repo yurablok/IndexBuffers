@@ -254,16 +254,19 @@ struct AST {
         //std::unordered_set<ObjectMeta*> friends;
         std::deque<FieldMeta*> fieldsVec;
         std::unordered_map<std::string, std::unique_ptr<FieldMeta>> fieldsMap;
-        uint32_t optionalCount = 0;
-        kw attribute = kw::UNDEFINED;
+        //uint32_t optionalCount = 0;
+        mutable std::string offsetTypeStr;
         kw offsetType = kw::UInt32;
+        kw attribute = kw::UNDEFINED;
     };
     struct UnionMeta {
         void calcSizeMinMax(uint64_t& min, uint64_t& max) const;
         std::string name;
         std::deque<FieldMeta*> fieldsVec;
         std::unordered_map<std::string, std::unique_ptr<FieldMeta>> fieldsMap;
+        mutable std::string offsetTypeStr;
         kw offsetType = kw::UInt32;
+        kw attribute = kw::UNDEFINED;
     };
 
     struct TreeNode;

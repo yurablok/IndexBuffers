@@ -66,11 +66,18 @@ static constexpr int32_t debugNegConst = -888;
 class DebugStruct { // struct DebugStruct
 public:
     DebugStruct() {}
-    DebugStruct(void* from_ptr) {
-        from(from_ptr);
+    DebugStruct(void* from_ptr, const uint32_t from_size = 0) {
+        from(from_ptr, from_size);
     }
-    DebugStruct(const void* from_ptr) {
-        from(from_ptr);
+    DebugStruct(const void* from_ptr, const uint32_t from_size = 0) {
+        from(from_ptr, from_size);
+    }
+    void create(void* external_ptr, const uint32_t external_size) {
+        m_table_offset = 0;
+        m_from_ptr = reinterpret_cast<uint8_t*>(external_ptr);
+        m_from_size = external_size;
+        m_buffer.reset();
+        create(UINT32_MAX);
     }
     void create(const uint32_t reserve = 0) {
         if (reserve != UINT32_MAX) {
@@ -105,8 +112,8 @@ public:
         }
         return true;
     }
-    bool from(const void* from_ptr) {
-        return from(const_cast<void*>(from_ptr));
+    bool from(const void* from_ptr, const uint32_t from_size = 0) {
+        return from(const_cast<void*>(from_ptr), from_size);
     }
     void from(uint32_t table_offset, const void* from_ptr,
             const uint32_t from_size, std::shared_ptr<std::vector<uint8_t>> buffer) {

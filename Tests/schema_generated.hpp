@@ -69,11 +69,18 @@ static constexpr _ at(const uint8_t index) {
 class ScalarTypes { // struct ScalarTypes
 public:
     ScalarTypes() {}
-    ScalarTypes(void* from_ptr) {
-        from(from_ptr);
+    ScalarTypes(void* from_ptr, const uint8_t from_size = 0) {
+        from(from_ptr, from_size);
     }
-    ScalarTypes(const void* from_ptr) {
-        from(from_ptr);
+    ScalarTypes(const void* from_ptr, const uint8_t from_size = 0) {
+        from(from_ptr, from_size);
+    }
+    void create(void* external_ptr, const uint8_t external_size) {
+        m_table_offset = 0;
+        m_from_ptr = reinterpret_cast<uint8_t*>(external_ptr);
+        m_from_size = external_size;
+        m_buffer.reset();
+        create(UINT32_MAX);
     }
     void create(const uint32_t reserve = 0) {
         if (reserve != UINT32_MAX) {
@@ -86,7 +93,7 @@ public:
         }
         new(get_table()) table();
     }
-    bool from(void* from_ptr, const uint32_t from_size = 0) {
+    bool from(void* from_ptr, const uint8_t from_size = 0) {
         m_table_offset = 0;
         m_buffer.reset();
         //TODO: m_is_read_only
@@ -108,11 +115,11 @@ public:
         }
         return true;
     }
-    bool from(const void* from_ptr) {
-        return from(const_cast<void*>(from_ptr));
+    bool from(const void* from_ptr, const uint8_t from_size = 0) {
+        return from(const_cast<void*>(from_ptr), from_size);
     }
-    void from(uint32_t table_offset, const void* from_ptr,
-            const uint32_t from_size, std::shared_ptr<std::vector<uint8_t>> buffer) {
+    void from(uint8_t table_offset, const void* from_ptr,
+            const uint8_t from_size, std::shared_ptr<std::vector<uint8_t>> buffer) {
         m_table_offset = table_offset;
         m_buffer = buffer;
         m_from_ptr = reinterpret_cast<uint8_t*>(const_cast<void*>(from_ptr));
@@ -130,7 +137,7 @@ public:
     const void* to() const {
         return const_cast<ScalarTypes*>(this)->to();
     }
-    uint32_t size(const uint8_t calculate = 0) const {
+    uint8_t size(const uint8_t calculate = 0) const {
         if (m_from_ptr) {
             if (calculate > 0) {
                 m_from_size = 0;
@@ -147,19 +154,19 @@ public:
             return m_from_size;
         }
         if (m_buffer) {
-            return static_cast<uint32_t>(m_buffer->size());
+            return static_cast<uint8_t>(m_buffer->size());
         }
         return 0;
     }
-    static uint32_t size_min() {
-        return 23;
+    static uint8_t size_min() {
+        return 17;
     }
-    static uint32_t size_max() {
-        return 35;
+    static uint8_t size_max() {
+        return 29;
     }
     
     struct fields { // enum fields
-    enum _ : uint32_t {
+    enum _ : uint8_t {
         a = 0,
         b = 1,
         c = 2,
@@ -205,10 +212,10 @@ public:
     static constexpr _ max() {
         return f;
     }
-    static constexpr uint32_t count() {
+    static constexpr uint8_t count() {
         return 6;
     }
-    static constexpr _ at(const uint32_t index) {
+    static constexpr _ at(const uint8_t index) {
         switch (index) {
         case 0: return a;
         case 1: return b;
@@ -222,19 +229,19 @@ public:
     }
     }; // enum fields
 
-    uint32_t offset(const fields::_ field) const {
+    uint8_t offset(const fields::_ field) const {
         static const table o;
         const table* t = get_table();
         switch (field) {
-        case fields::a: return m_table_offset + static_cast<uint32_t>(
+        case fields::a: return m_table_offset + static_cast<uint8_t>(
             reinterpret_cast<uintptr_t>(&o.a) - reinterpret_cast<uintptr_t>(&o));
-        case fields::b: return m_table_offset + static_cast<uint32_t>(
+        case fields::b: return m_table_offset + static_cast<uint8_t>(
             reinterpret_cast<uintptr_t>(&o.b) - reinterpret_cast<uintptr_t>(&o));
         case fields::c: return t->__c;
         case fields::d: return t->__d;
-        case fields::e: return m_table_offset + static_cast<uint32_t>(
+        case fields::e: return m_table_offset + static_cast<uint8_t>(
             reinterpret_cast<uintptr_t>(&o.e) - reinterpret_cast<uintptr_t>(&o));
-        case fields::f: return m_table_offset + static_cast<uint32_t>(
+        case fields::f: return m_table_offset + static_cast<uint8_t>(
             reinterpret_cast<uintptr_t>(&o.f) - reinterpret_cast<uintptr_t>(&o));
         }
         return UINT32_MAX;
@@ -270,7 +277,7 @@ public:
     const void* get(const fields::_ field) const {
         return const_cast<ScalarTypes*>(this)->get(field);
     }
-    void set(const fields::_ field, const void* data, const uint32_t size) {
+    void set(const fields::_ field, const void* data, const uint8_t size) {
         if (!has(field)) {
             if (m_from_ptr) {
                 return;
@@ -295,7 +302,7 @@ public:
                 reinterpret_cast<uint8_t*>(get(field)));
         }
     }
-    uint32_t size(const fields::_ field) const {
+    uint8_t size(const fields::_ field) const {
         if (!has(field)) {
             return 0;
         }
@@ -395,8 +402,8 @@ public:
     struct table {
         int8_t a;
         uint16_t b;
-        uint32_t __c = 0;
-        uint32_t __d = 0;
+        uint8_t __c = 0;
+        uint8_t __d = 0;
         float e;
         double f;
     };
@@ -430,18 +437,25 @@ private:
     #endif // _DEBUG
     std::shared_ptr<std::vector<uint8_t>> m_buffer;
     uint8_t* m_from_ptr = nullptr;
-    mutable uint32_t m_from_size = 0;
-    uint32_t m_table_offset = 0;
+    mutable uint8_t m_from_size = 0;
+    uint8_t m_table_offset = 0;
 }; // struct ScalarTypes
 
 class Vec3f { // struct Vec3f
 public:
     Vec3f() {}
-    Vec3f(void* from_ptr) {
-        from(from_ptr);
+    Vec3f(void* from_ptr, const uint32_t from_size = 0) {
+        from(from_ptr, from_size);
     }
-    Vec3f(const void* from_ptr) {
-        from(from_ptr);
+    Vec3f(const void* from_ptr, const uint32_t from_size = 0) {
+        from(from_ptr, from_size);
+    }
+    void create(void* external_ptr, const uint32_t external_size) {
+        m_table_offset = 0;
+        m_from_ptr = reinterpret_cast<uint8_t*>(external_ptr);
+        m_from_size = external_size;
+        m_buffer.reset();
+        create(UINT32_MAX);
     }
     void create(const uint32_t reserve = 0) {
         if (reserve != UINT32_MAX) {
@@ -476,8 +490,8 @@ public:
         }
         return true;
     }
-    bool from(const void* from_ptr) {
-        return from(const_cast<void*>(from_ptr));
+    bool from(const void* from_ptr, const uint32_t from_size = 0) {
+        return from(const_cast<void*>(from_ptr), from_size);
     }
     void from(uint32_t table_offset, const void* from_ptr,
             const uint32_t from_size, std::shared_ptr<std::vector<uint8_t>> buffer) {
@@ -721,11 +735,18 @@ static constexpr uint32_t fixedSize = 16;
 class Arrays { // struct Arrays
 public:
     Arrays() {}
-    Arrays(void* from_ptr) {
-        from(from_ptr);
+    Arrays(void* from_ptr, const uint16_t from_size = 0) {
+        from(from_ptr, from_size);
     }
-    Arrays(const void* from_ptr) {
-        from(from_ptr);
+    Arrays(const void* from_ptr, const uint16_t from_size = 0) {
+        from(from_ptr, from_size);
+    }
+    void create(void* external_ptr, const uint16_t external_size) {
+        m_table_offset = 0;
+        m_from_ptr = reinterpret_cast<uint8_t*>(external_ptr);
+        m_from_size = external_size;
+        m_buffer.reset();
+        create(UINT32_MAX);
     }
     void create(const uint32_t reserve = 0) {
         if (reserve != UINT32_MAX) {
@@ -738,7 +759,7 @@ public:
         }
         new(get_table()) table();
     }
-    bool from(void* from_ptr, const uint32_t from_size = 0) {
+    bool from(void* from_ptr, const uint16_t from_size = 0) {
         m_table_offset = 0;
         m_buffer.reset();
         //TODO: m_is_read_only
@@ -760,11 +781,11 @@ public:
         }
         return true;
     }
-    bool from(const void* from_ptr) {
-        return from(const_cast<void*>(from_ptr));
+    bool from(const void* from_ptr, const uint16_t from_size = 0) {
+        return from(const_cast<void*>(from_ptr), from_size);
     }
-    void from(uint32_t table_offset, const void* from_ptr,
-            const uint32_t from_size, std::shared_ptr<std::vector<uint8_t>> buffer) {
+    void from(uint16_t table_offset, const void* from_ptr,
+            const uint16_t from_size, std::shared_ptr<std::vector<uint8_t>> buffer) {
         m_table_offset = table_offset;
         m_buffer = buffer;
         m_from_ptr = reinterpret_cast<uint8_t*>(const_cast<void*>(from_ptr));
@@ -782,7 +803,7 @@ public:
     const void* to() const {
         return const_cast<Arrays*>(this)->to();
     }
-    uint32_t size(const uint8_t calculate = 0) const {
+    uint16_t size(const uint8_t calculate = 0) const {
         if (m_from_ptr) {
             if (calculate > 0) {
                 m_from_size = 0;
@@ -790,33 +811,33 @@ public:
                     m_from_size += sizeof(table);
                 }
                 if (has_f()) {
-                    m_from_size += size_f() * sizeof(uint8_t) + sizeof(uint32_t);
+                    m_from_size += size_f() * sizeof(uint8_t) + sizeof(uint16_t);
                 }
                 if (has_m()) {
-                    m_from_size += size_m() * sizeof(int16_t) + sizeof(uint32_t);
+                    m_from_size += size_m() * sizeof(int16_t) + sizeof(uint16_t);
                 }
                 if (has_v()) {
-                    for (uint32_t i = 0, s = size_v(); i < s; ++i) {
+                    for (uint16_t i = 0, s = size_v(); i < s; ++i) {
                         m_from_size += get_v(i).size(1);
-                    } m_from_size += sizeof(uint32_t);
+                    } m_from_size += sizeof(uint16_t);
                 }
             }
             return m_from_size;
         }
         if (m_buffer) {
-            return static_cast<uint32_t>(m_buffer->size());
+            return static_cast<uint16_t>(m_buffer->size());
         }
         return 0;
     }
-    static uint32_t size_min() {
-        return 28;
+    static uint16_t size_min() {
+        return 22;
     }
-    static uint32_t size_max() {
-        return 4294967295;
+    static uint16_t size_max() {
+        return 65535;
     }
     
     struct fields { // enum fields
-    enum _ : uint32_t {
+    enum _ : uint16_t {
         f = 0,
         b = 1,
         m = 2,
@@ -856,10 +877,10 @@ public:
     static constexpr _ max() {
         return v;
     }
-    static constexpr uint32_t count() {
+    static constexpr uint16_t count() {
         return 4;
     }
-    static constexpr _ at(const uint32_t index) {
+    static constexpr _ at(const uint16_t index) {
         switch (index) {
         case 0: return f;
         case 1: return b;
@@ -871,12 +892,12 @@ public:
     }
     }; // enum fields
 
-    uint32_t offset(const fields::_ field) const {
+    uint16_t offset(const fields::_ field) const {
         static const table o;
         const table* t = get_table();
         switch (field) {
         case fields::f: return t->__f;
-        case fields::b: return m_table_offset + static_cast<uint32_t>(
+        case fields::b: return m_table_offset + static_cast<uint16_t>(
             reinterpret_cast<uintptr_t>(&o.b) - reinterpret_cast<uintptr_t>(&o));
         case fields::m: return t->__m;
         case fields::v: return t->__v;
@@ -899,16 +920,16 @@ public:
         case fields::b: return reinterpret_cast<uint8_t*>(
             base_ptr()) + offset(field);
         case fields::m: return reinterpret_cast<uint8_t*>(
-            base_ptr()) + offset(field) + sizeof(uint32_t);
+            base_ptr()) + offset(field) + sizeof(uint16_t);
         case fields::v: return reinterpret_cast<uint8_t*>(
-            base_ptr()) + offset(field) + sizeof(uint32_t);
+            base_ptr()) + offset(field) + sizeof(uint16_t);
         }
         return nullptr;
     }
     const void* get(const fields::_ field) const {
         return const_cast<Arrays*>(this)->get(field);
     }
-    void set(const fields::_ field, const void* data, const uint32_t size) {
+    void set(const fields::_ field, const void* data, const uint16_t size) {
         if (!has(field)) {
             if (m_from_ptr) {
                 return;
@@ -917,22 +938,22 @@ public:
             case fields::f:
                 get_table()->__f = m_buffer->size();
                 m_buffer->resize(m_buffer->size()
-                    + sizeof(uint8_t) * 16 + sizeof(uint32_t));
+                    + sizeof(uint8_t) * 16 + sizeof(uint16_t));
                 break;
             case fields::m:
                 get_table()->__m = m_buffer->size();
                 m_buffer->resize(m_buffer->size()
-                    + sizeof(int16_t) * size + sizeof(uint32_t));
-                *reinterpret_cast<uint32_t*>((reinterpret_cast<uint8_t*>(
+                    + sizeof(int16_t) * size + sizeof(uint16_t));
+                *reinterpret_cast<uint16_t*>((reinterpret_cast<uint8_t*>(
                     base_ptr()) + get_table()->__m)) = size;
                 break;
             case fields::v:
                 get_table()->__v = m_buffer->size();
                 m_buffer->resize(m_buffer->size()
-                    + sizeof(ExtNS::IntNS::Vec3f::table) * size + sizeof(uint32_t));
-                *reinterpret_cast<uint32_t*>((reinterpret_cast<uint8_t*>(
+                    + sizeof(ExtNS::IntNS::Vec3f::table) * size + sizeof(uint16_t));
+                *reinterpret_cast<uint16_t*>((reinterpret_cast<uint8_t*>(
                     base_ptr()) + get_table()->__v)) = size;
-                for (uint32_t i = 0; i < size; ++i) {
+                for (uint16_t i = 0; i < size; ++i) {
                     get_v(i).create(UINT32_MAX);
                 }
                 break;
@@ -945,7 +966,7 @@ public:
                 reinterpret_cast<uint8_t*>(get(field)));
         }
     }
-    uint32_t size(const fields::_ field) const {
+    uint16_t size(const fields::_ field) const {
         if (!has(field)) {
             return 0;
         }
@@ -955,9 +976,9 @@ public:
         case fields::b:
             return ExtNS::IntNS::fixedSize;
         case fields::m:
-            return *(reinterpret_cast<const uint32_t*>(get(field)) - 1);
+            return *(reinterpret_cast<const uint16_t*>(get(field)) - 1);
         case fields::v:
-            return *(reinterpret_cast<const uint32_t*>(get(field)) - 1);
+            return *(reinterpret_cast<const uint16_t*>(get(field)) - 1);
         default:
             return 0;
         }
@@ -967,71 +988,71 @@ public:
     bool has_f() const {
         return has(fields::f);
     }
-    uint8_t& get_f(const uint32_t index) {
+    uint8_t& get_f(const uint16_t index) {
         return reinterpret_cast<uint8_t*>(get(fields::f))[index];
     }
-    const uint8_t& get_f(const uint32_t index) const {
+    const uint8_t& get_f(const uint16_t index) const {
         return const_cast<Arrays*>(this)->get_f(index);
     }
     void set_f() {
         set(fields::f, nullptr, 16); 
     }
-    uint32_t size_f() const {
+    uint16_t size_f() const {
         return size(fields::f);
     }
     bool has_b() const {
         return has(fields::b);
     }
-    uint8_t& get_b(const uint32_t index) {
+    uint8_t& get_b(const uint16_t index) {
         return reinterpret_cast<uint8_t*>(get(fields::b))[index];
     }
-    const uint8_t& get_b(const uint32_t index) const {
+    const uint8_t& get_b(const uint16_t index) const {
         return const_cast<Arrays*>(this)->get_b(index);
     }
-    uint32_t size_b() const {
+    uint16_t size_b() const {
         return size(fields::b);
     }
     bool has_m() const {
         return has(fields::m);
     }
-    int16_t& get_m(const uint32_t index) {
+    int16_t& get_m(const uint16_t index) {
         return reinterpret_cast<int16_t*>(get(fields::m))[index];
     }
-    const int16_t& get_m(const uint32_t index) const {
+    const int16_t& get_m(const uint16_t index) const {
         return const_cast<Arrays*>(this)->get_m(index);
     }
-    void set_m(const uint32_t size) {
+    void set_m(const uint16_t size) {
         set(fields::m, nullptr, size);
     }
-    uint32_t size_m() const {
+    uint16_t size_m() const {
         return size(fields::m);
     }
     bool has_v() const {
         return has(fields::v);
     }
-    ExtNS::IntNS::Vec3f& get_v(const uint32_t index) {
+    ExtNS::IntNS::Vec3f& get_v(const uint16_t index) {
         static thread_local ExtNS::IntNS::Vec3f v;
         const auto v_t = &reinterpret_cast<ExtNS::IntNS::Vec3f::table*>(get(fields::v))[index];
-        const uint32_t table_offset = reinterpret_cast<const uint8_t*>(v_t) - base_ptr();
+        const uint16_t table_offset = reinterpret_cast<const uint8_t*>(v_t) - base_ptr();
         v.from(table_offset, m_from_ptr, 0, m_buffer);
         return v;
     }
-    const ExtNS::IntNS::Vec3f& get_v(const uint32_t index) const {
+    const ExtNS::IntNS::Vec3f& get_v(const uint16_t index) const {
         return const_cast<Arrays*>(this)->get_v(index);
     }
-    void set_v(const uint32_t size) {
+    void set_v(const uint16_t size) {
         set(fields::v, nullptr, size);
     }
-    uint32_t size_v() const {
+    uint16_t size_v() const {
         return size(fields::v);
     }
 
     #pragma pack(1)
     struct table {
-        uint32_t __f = 0;
+        uint16_t __f = 0;
         uint8_t b[ExtNS::IntNS::fixedSize];
-        uint32_t __m = 0;
-        uint32_t __v = 0;
+        uint16_t __m = 0;
+        uint16_t __v = 0;
     };
     #pragma pack()
 private:
@@ -1063,18 +1084,25 @@ private:
     #endif // _DEBUG
     std::shared_ptr<std::vector<uint8_t>> m_buffer;
     uint8_t* m_from_ptr = nullptr;
-    mutable uint32_t m_from_size = 0;
-    uint32_t m_table_offset = 0;
+    mutable uint16_t m_from_size = 0;
+    uint16_t m_table_offset = 0;
 }; // struct Arrays
 
 class Variant { // union Variant
 public:
     Variant() {}
-    Variant(void* from_ptr) {
-        from(from_ptr);
+    Variant(void* from_ptr, const uint8_t from_size = 0) {
+        from(from_ptr, from_size);
     }
-    Variant(const void* from_ptr) {
-        from(from_ptr);
+    Variant(const void* from_ptr, const uint8_t from_size = 0) {
+        from(from_ptr, from_size);
+    }
+    void create(void* external_ptr, const uint8_t external_size) {
+        m_table_offset = 0;
+        m_from_ptr = reinterpret_cast<uint8_t*>(external_ptr);
+        m_from_size = external_size;
+        m_buffer.reset();
+        create(UINT32_MAX);
     }
     void create(const uint32_t reserve = 0) {
         if (reserve != UINT32_MAX) {
@@ -1087,7 +1115,7 @@ public:
         }
         new(get_table()) table();
     }
-    bool from(void* from_ptr, const uint32_t from_size = 0) {
+    bool from(void* from_ptr, const uint8_t from_size = 0) {
         m_table_offset = 0;
         m_buffer.reset();
         //TODO: m_is_read_only
@@ -1109,11 +1137,11 @@ public:
         }
         return true;
     }
-    bool from(const void* from_ptr) {
-        return from(const_cast<void*>(from_ptr));
+    bool from(const void* from_ptr, const uint8_t from_size = 0) {
+        return from(const_cast<void*>(from_ptr), from_size);
     }
-    void from(uint32_t table_offset, const void* from_ptr,
-            const uint32_t from_size, std::shared_ptr<std::vector<uint8_t>> buffer) {
+    void from(uint8_t table_offset, const void* from_ptr,
+            const uint8_t from_size, std::shared_ptr<std::vector<uint8_t>> buffer) {
         m_table_offset = table_offset;
         m_buffer = buffer;
         m_from_ptr = reinterpret_cast<uint8_t*>(const_cast<void*>(from_ptr));
@@ -1131,7 +1159,7 @@ public:
     const void* to() const {
         return const_cast<Variant*>(this)->to();
     }
-    uint32_t size(const uint8_t calculate = 0) const {
+    uint8_t size(const uint8_t calculate = 0) const {
         if (m_from_ptr) {
             if (calculate > 0) {
                 m_from_size = 0;
@@ -1146,7 +1174,7 @@ public:
                     m_from_size += get_data().size(1);
                     break;
                 case fields::arr:
-                    m_from_size += size_arr() * sizeof(int64_t) + sizeof(uint32_t);
+                    m_from_size += size_arr() * sizeof(int64_t) + sizeof(uint8_t);
                     break;
                 default: break;
                 }
@@ -1154,19 +1182,19 @@ public:
             return m_from_size;
         }
         if (m_buffer) {
-            return static_cast<uint32_t>(m_buffer->size());
+            return static_cast<uint8_t>(m_buffer->size());
         }
         return 0;
     }
-    static uint32_t size_min() {
-        return 8;
+    static uint8_t size_min() {
+        return 2;
     }
-    static uint32_t size_max() {
-        return 4294967295;
+    static uint8_t size_max() {
+        return 255;
     }
     
     struct fields { // enum fields
-    enum _ : uint32_t {
+    enum _ : uint8_t {
         color = 0,
         data = 1,
         arr = 2,
@@ -1203,10 +1231,10 @@ public:
     static constexpr _ max() {
         return arr;
     }
-    static constexpr uint32_t count() {
+    static constexpr uint8_t count() {
         return 3;
     }
-    static constexpr _ at(const uint32_t index) {
+    static constexpr _ at(const uint8_t index) {
         switch (index) {
         case 0: return color;
         case 1: return data;
@@ -1217,7 +1245,7 @@ public:
     }
     }; // enum fields
 
-    uint32_t offset() const {
+    uint8_t offset() const {
         return get_table()->offset;
     }
     bool has(const fields::_ field) const {
@@ -1230,7 +1258,7 @@ public:
         case fields::data: return reinterpret_cast<uint8_t*>(
             base_ptr()) + offset();
         case fields::arr: return reinterpret_cast<uint8_t*>(
-            base_ptr()) + offset() + sizeof(uint32_t);
+            base_ptr()) + offset() + sizeof(uint8_t);
         default: break;
         }
         return nullptr;
@@ -1238,13 +1266,13 @@ public:
     const void* get(const fields::_ field) const {
         return const_cast<Variant*>(this)->get(field);
     }
-    void set(const fields::_ field, const void* data, const uint32_t size) {
+    void set(const fields::_ field, const void* data, const uint8_t size) {
         if (get_table()->variant == fields::_SPECIAL_) {
             if (m_from_ptr) {
                 return;
             }
             get_table()->variant = field;
-            get_table()->offset = static_cast<uint32_t>(m_buffer->size());
+            get_table()->offset = static_cast<uint8_t>(m_buffer->size());
             switch (field) {
             case fields::color:
                 m_buffer->resize(m_buffer->size() + sizeof(ExtNS::IntNS::Color::_));
@@ -1254,9 +1282,9 @@ public:
                 get_data().create(UINT32_MAX);
                 break;
             case fields::arr:
-                m_buffer->resize(m_buffer->size() + sizeof(uint32_t)
+                m_buffer->resize(m_buffer->size() + sizeof(uint8_t)
                     + size * sizeof(int64_t));
-                *reinterpret_cast<uint32_t*>((reinterpret_cast<uint8_t*>(
+                *reinterpret_cast<uint8_t*>((reinterpret_cast<uint8_t*>(
                     base_ptr()) + get_table()->offset)) = size;
                 break;
             default: return;
@@ -1268,7 +1296,7 @@ public:
                 reinterpret_cast<uint8_t*>(get(field)));
         }
     }
-    uint32_t size(const fields::_ field) const {
+    uint8_t size(const fields::_ field) const {
         if (!has(field)) {
             return 0;
         }
@@ -1278,7 +1306,7 @@ public:
         case fields::data:
             return sizeof(ExtNS::IntNS::Arrays::table);
         case fields::arr:
-            return *(reinterpret_cast<const uint32_t*>(get(field)) - 1);
+            return *(reinterpret_cast<const uint8_t*>(get(field)) - 1);
         default:
             return 0;
         }
@@ -1303,7 +1331,7 @@ public:
     ExtNS::IntNS::Arrays& get_data() {
         static thread_local ExtNS::IntNS::Arrays data;
         const auto data_t = reinterpret_cast<ExtNS::IntNS::Arrays::table*>(get(fields::data));
-        const uint32_t table_offset = reinterpret_cast<const uint8_t*>(data_t) - base_ptr();
+        const uint8_t table_offset = reinterpret_cast<const uint8_t*>(data_t) - base_ptr();
         data.from(table_offset, m_from_ptr, 0, m_buffer);
         return data;
     }
@@ -1316,23 +1344,23 @@ public:
     bool has_arr() const {
         return has(fields::arr);
     }
-    int64_t& get_arr(const uint32_t index) {
+    int64_t& get_arr(const uint8_t index) {
         return reinterpret_cast<int64_t*>(get(fields::arr))[index];
     }
-    const int64_t& get_arr(const uint32_t index) const {
+    const int64_t& get_arr(const uint8_t index) const {
         return const_cast<Variant*>(this)->get_arr(index);
     }
-    void set_arr(const uint32_t size) {
+    void set_arr(const uint8_t size) {
         set(fields::arr, nullptr, size);
     }
-    uint32_t size_arr() const {
+    uint8_t size_arr() const {
         return size(fields::arr);
     }
 
     #pragma pack(1)
     struct table {
         fields::_ variant = fields::_SPECIAL_;
-        uint32_t offset = 0;
+        uint8_t offset = 0;
     };
     #pragma pack()
 private:
@@ -1364,18 +1392,25 @@ private:
     #endif // _DEBUG
     std::shared_ptr<std::vector<uint8_t>> m_buffer;
     uint8_t* m_from_ptr = nullptr;
-    mutable uint32_t m_from_size = 0;
-    uint32_t m_table_offset = 0;
+    mutable uint8_t m_from_size = 0;
+    uint8_t m_table_offset = 0;
 }; // union Variant
 
 class AnotherOne { // struct AnotherOne
 public:
     AnotherOne() {}
-    AnotherOne(void* from_ptr) {
-        from(from_ptr);
+    AnotherOne(void* from_ptr, const uint32_t from_size = 0) {
+        from(from_ptr, from_size);
     }
-    AnotherOne(const void* from_ptr) {
-        from(from_ptr);
+    AnotherOne(const void* from_ptr, const uint32_t from_size = 0) {
+        from(from_ptr, from_size);
+    }
+    void create(void* external_ptr, const uint32_t external_size) {
+        m_table_offset = 0;
+        m_from_ptr = reinterpret_cast<uint8_t*>(external_ptr);
+        m_from_size = external_size;
+        m_buffer.reset();
+        create(UINT32_MAX);
     }
     void create(const uint32_t reserve = 0) {
         if (reserve != UINT32_MAX) {
@@ -1411,8 +1446,8 @@ public:
         }
         return true;
     }
-    bool from(const void* from_ptr) {
-        return from(const_cast<void*>(from_ptr));
+    bool from(const void* from_ptr, const uint32_t from_size = 0) {
+        return from(const_cast<void*>(from_ptr), from_size);
     }
     void from(uint32_t table_offset, const void* from_ptr,
             const uint32_t from_size, std::shared_ptr<std::vector<uint8_t>> buffer) {

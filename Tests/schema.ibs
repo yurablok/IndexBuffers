@@ -8,7 +8,7 @@ enum Color: uint8 {
     BLUE      // 4
 }
 
-struct ScalarTypes: crc32 {
+struct ScalarTypes: uint8 crc32 {
     int8            a
     uint16          b
     optional int32  c
@@ -26,7 +26,7 @@ struct Vec3f: no_header
 
 const uint32 fixedSize = 16 // Только атомарные типы, включая enum
 
-struct Arrays {
+struct Arrays: uint16 {
     optional uint8 f[16] // Массив фиксированного размера
     bytes          b[fixedSize] // Массив байт фиксированного размера
     // Массивы динамического размера всегда являются "optional"
@@ -34,7 +34,7 @@ struct Arrays {
     Vec3f          v[] // Массив структур динамического размера
 }
 
-union Variant {
+union Variant: uint8 {
     Color  color // Внутри "union", "optional" и значение по-умолчанию запрещены
     Arrays data
     int64  arr[]

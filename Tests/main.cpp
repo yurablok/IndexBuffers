@@ -140,7 +140,6 @@ void testVariant() {
     ASSERT(dst.from(src.to()) == true);
     ASSERT(dst.size() > Variant::size_min());
     ASSERT(dst.size() == src.size());
-    ASSERT(dst.size() == Variant::size_min() + 4 + sizeof(int64_t) * 5);
 
     src.create();
     src.set_data();

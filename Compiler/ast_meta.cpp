@@ -308,7 +308,7 @@ void AST::UnionMeta::calcSizeMinMax(uint64_t& min, uint64_t& max) const {
         minRes = std::max(minRes, minTemp);
         maxRes = std::max(maxRes, maxTemp);
     }
-    min += 8; // sizeof(table), table { fields variant; uint32_t offset; }
+    min += offsetSize * 2; // sizeof(table), table { fields variant; offsetType offset; }
     if (max != UINT64_MAX) {
         if (maxRes == UINT64_MAX) {
             max = UINT64_MAX;

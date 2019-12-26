@@ -1407,24 +1407,36 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
         return false;
     }
     if (it->str == ":") { // <struct> <NAME> <:>
-        // <struct> <NAME> <:> <?>
-        if (next(meta, it, true, true) != next_r('y', 'y')) {
-            return false;
-        }
-        const kw attribute = findKeyword(it->str);
-        switch (attribute) {
-        case kw::MurMur3:
-        case kw::CRC32:
-        case kw::NoHeader:
-            structMeta->attribute = attribute;
-            break;
-        default:
-            printErrorWrongToken(meta, it, "crc32\", \"mmh3\" or \"no_header");
-            skipLine(meta, it);
-            return false;
-        }
         if (next(meta, it, true) != next_r('y')) {
             return false;
+        }
+        for (uint8_t i = 0; i < 10; ++i) {
+            // <struct> <NAME> <:> <?>
+            if (it->str == "{") {
+                break;
+            }
+            const kw attribute = findKeyword(it->str);
+            switch (attribute) {
+            case kw::MurMur3:
+            case kw::CRC32:
+            case kw::NoHeader:
+                structMeta->attribute = attribute;
+                break;
+            case kw::UInt8:
+            case kw::UInt16:
+            case kw::UInt32:
+            case kw::UInt64:
+                structMeta->offsetType = attribute;
+                break;
+            default:
+                printErrorWrongToken(meta, it, "uint8\", \"uint16\", \"uint32\", "
+                    "\"uint64\", \"crc32\", \"mmh3\" or \"no_header");
+                skipLine(meta, it);
+                return false;
+            }
+            if (next(meta, it, true) != next_r('y')) {
+                return false;
+            }
         }
     }
     if (it->str != "{") { // ... <{>
@@ -1937,6 +1949,39 @@ bool INBCompiler::parseUnion(AST::ParsingMeta& meta, tokens_it& it) {
     unionMeta->name = it->str;
     if (next(meta, it, true) != next_r('y')) { // <union> <NAME> <?>
         return false;
+    }
+    if (it->str == ":") { // <union> <NAME> <:>
+        if (next(meta, it, true) != next_r('y')) {
+            return false;
+        }
+        for (uint8_t i = 0; i < 10; ++i) {
+            // <union> <NAME> <:> <?>
+            if (it->str == "{") {
+                break;
+            }
+            const kw attribute = findKeyword(it->str);
+            switch (attribute) {
+            case kw::MurMur3:
+            case kw::CRC32:
+            case kw::NoHeader:
+                unionMeta->attribute = attribute;
+                break;
+            case kw::UInt8:
+            case kw::UInt16:
+            case kw::UInt32:
+            case kw::UInt64:
+                unionMeta->offsetType = attribute;
+                break;
+            default:
+                printErrorWrongToken(meta, it, "uint8\", \"uint16\", \"uint32\", "
+                    "\"uint64\", \"crc32\", \"mmh3\" or \"no_header");
+                skipLine(meta, it);
+                return false;
+            }
+            if (next(meta, it, true) != next_r('y')) {
+                return false;
+            }
+        }
     }
     if (it->str != "{") { // ... <{>
         printErrorWrongToken(meta, it);

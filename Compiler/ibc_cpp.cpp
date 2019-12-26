@@ -48,7 +48,6 @@ namespace {
     void writeConst(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::ObjectMeta* objectMeta) {
         const AST::ConstMeta* constMeta = objectMeta->constMeta();
-        std::cout << "const " << constMeta->name << std::endl;
         const std::string type = kw_to_domain_specific(constMeta->type);
         if (writingMeta.previous != kw::Const) {
             output << std::endl;
@@ -109,7 +108,6 @@ namespace {
     void writeEnum(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::ObjectMeta* objectMeta) {
         const AST::EnumMeta* enumMeta = objectMeta->enumMeta();
-        std::cout << "enum " << enumMeta->name << std::endl;
         output << writingMeta.spacing << std::endl;
         output << writingMeta.spacing << "struct " << enumMeta->name
             << " { // enum " << enumMeta->name << std::endl;
@@ -191,6 +189,14 @@ namespace {
 
     void writeStruct_create(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::StructMeta* structMeta) {
+        output << "    " << "void create(void* external_ptr, const "
+            << structMeta->offsetTypeStr << " external_size) {" << std::endl;
+        output << "    " << "    " << "m_table_offset = 0;" << std::endl;
+        output << "    " << "    " << "m_from_ptr = reinterpret_cast<uint8_t*>(external_ptr);" << std::endl;
+        output << "    " << "    " << "m_from_size = external_size;" << std::endl;
+        output << "    " << "    " << "m_buffer.reset();" << std::endl;
+        output << "    " << "    " << "create(UINT32_MAX);" << std::endl;
+        output << "    " << "}" << std::endl;
         output << "    " << "void create(const uint32_t reserve = 0) {" << std::endl;
         output << "    " << "    " << "if (reserve != UINT32_MAX) {" << std::endl;
         output << "    " << "    " << "    " << "m_table_offset = 0;" << std::endl;
@@ -214,7 +220,8 @@ namespace {
     }
     void writeStruct_from_to(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::StructMeta* structMeta) {
-        output << "    " << "bool from(void* from_ptr, const uint32_t from_size = 0) {" << std::endl;
+        output << "    " << "bool from(void* from_ptr, const "
+            << structMeta->offsetTypeStr << " from_size = 0) {" << std::endl;
         output << "    " << "    " << "m_table_offset = 0;" << std::endl;
         output << "    " << "    " << "m_buffer.reset();" << std::endl;
         //TODO: m_is_read_only
@@ -237,12 +244,14 @@ namespace {
         output << "    " << "    " << "}" << std::endl;
         output << "    " << "    " << "return true;" << std::endl;
         output << "    " << "}" << std::endl;
-        output << "    " << "bool from(const void* from_ptr) {" << std::endl;
-        output << "    " << "    " << "return from(const_cast<void*>(from_ptr));" << std::endl;
+        output << "    " << "bool from(const void* from_ptr, const "
+            << structMeta->offsetTypeStr << " from_size = 0) {" << std::endl;
+        output << "    " << "    " << "return from(const_cast<void*>(from_ptr), from_size);" << std::endl;
         output << "    " << "}" << std::endl;
-        output << "    " << "void from(uint32_t table_offset, const void* from_ptr," << std::endl;
-        output << "    " << "    " << "    " << "const uint32_t from_size, "
-            "std::shared_ptr<std::vector<uint8_t>> buffer) {" << std::endl;
+        output << "    " << "void from(" << structMeta->offsetTypeStr
+            << " table_offset, const void* from_ptr," << std::endl;
+        output << "    " << "    " << "    " << "const " << structMeta->offsetTypeStr
+            << " from_size, std::shared_ptr<std::vector<uint8_t>> buffer) {" << std::endl;
         output << "    " << "    " << "m_table_offset = table_offset;" << std::endl;
         output << "    " << "    " << "m_buffer = buffer;" << std::endl;
         output << "    " << "    " << "m_from_ptr = reinterpret_cast<uint8_t*>("
@@ -265,7 +274,7 @@ namespace {
     }
     void writeStruct_size(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::StructMeta* structMeta) {
-        output << "    " << "uint32_t size(const uint8_t calculate = 0) const {" << std::endl;
+        output << "    " << structMeta->offsetTypeStr << " size(const uint8_t calculate = 0) const {" << std::endl;
         output << "    " << "    " << "if (m_from_ptr) {" << std::endl;
         output << "    " << "    " << "    " << "if (calculate > 0) {" << std::endl;
         output << "    " << "    " << "    " << "    " << "m_from_size = 0;" << std::endl;
@@ -280,15 +289,15 @@ namespace {
             // 3. fixed array of structs     for size_x(): get_x(i).size(2)
             // 4. optional scalar            size_x()
             // 5. optional struct            has_x() get_x().size(1)
-            // 6. optional array of scalars  sizeof(uint32_t) + size_x() * sizeof(typeof(x))
-            // 7. optional array of structs  sizeof(uint32_t) + for size_x(): get_x(i).size(1)
+            // 6. optional array of scalars  sizeof(offset) + size_x() * sizeof(typeof(x))
+            // 7. optional array of structs  sizeof(offset) + for size_x(): get_x(i).size(1)
             if (field->typeKw == kw::Bytes) {
                 if (!field->isOptional) {
                     continue;
                 }
                 output << "    " << "    " << "    " << "    "
                     << "m_from_size += size_" << field->name
-                    << "() + sizeof(uint32_t);" << std::endl;
+                    << "() + sizeof(" << structMeta->offsetTypeStr << ");" << std::endl;
             }
             else if (field->isOptional) {
                 output << "    " << "    " << "    " << "    "
@@ -298,17 +307,17 @@ namespace {
                         output << "    " << "    " << "    " << "    " << "    "
                             << "m_from_size += size_" << field->name << "() * sizeof("
                             << kw_to_domain_specific(field->typeKw)
-                            << ") + sizeof(uint32_t);" << std::endl;
+                            << ") + sizeof(" << structMeta->offsetTypeStr << ");" << std::endl;
                     }
                     else { // 7
                         output << "    " << "    " << "    " << "    " << "    "
-                            << "for (uint32_t i = 0, s = size_" << field->name
-                            << "(); i < s; ++i) {" << std::endl;
+                            << "for (" << structMeta->offsetTypeStr << " i = 0, s = size_"
+                            << field->name << "(); i < s; ++i) {" << std::endl;
                         output << "    " << "    " << "    " << "    " << "    "
                             << "    " << "m_from_size += get_" << field->name
                             << "(i).size(1);" << std::endl;
                         output << "    " << "    " << "    " << "    " << "    "
-                            << "} m_from_size += sizeof(uint32_t);" << std::endl;
+                            << "} m_from_size += sizeof(" << structMeta->offsetTypeStr << ");" << std::endl;
                     }
                 }
                 else {
@@ -331,8 +340,8 @@ namespace {
                     }
                     else { // 3
                         output << "    " << "    " << "    " << "    "
-                            << "for (uint32_t i = 0, s = size_" << field->name
-                            << "(); i < s; ++i) {" << std::endl;
+                            << "for (" << structMeta->offsetTypeStr << " i = 0, s = size_"
+                            << field->name << "(); i < s; ++i) {" << std::endl;
                         output << "    " << "    " << "    " << "    "
                             << "    " << "m_from_size += get_" << field->name
                             << "(i).size(2);" << std::endl;
@@ -355,7 +364,7 @@ namespace {
         output << "    " << "    " << "}" << std::endl;
         output << "    " << "    " << "if (m_buffer) {" << std::endl;
         output << "    " << "    " << "    "
-            << "return static_cast<uint32_t>(m_buffer->size());" << std::endl;
+            << "return static_cast<" << structMeta->offsetTypeStr << ">(m_buffer->size());" << std::endl;
         output << "    " << "    " << "}" << std::endl;
         output << "    " << "    " << "return 0;" << std::endl;
         output << "    " << "}" << std::endl;
@@ -370,16 +379,16 @@ namespace {
             default: break;
             }
         }
-        output << "    " << "static uint32_t size_min() {" << std::endl;
+        output << "    " << "static " << structMeta->offsetTypeStr << " size_min() {" << std::endl;
         output << "    " << "    " << "return " << sizeMin << ";" << std::endl;
         output << "    " << "}" << std::endl;
-        output << "    " << "static uint32_t size_max() {" << std::endl;
+        output << "    " << "static " << structMeta->offsetTypeStr << " size_max() {" << std::endl;
         output << "    " << "    " << "return " << sizeMax << ";" << std::endl;
         output << "    " << "}" << std::endl;
     }
     void writeStruct_offset(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::StructMeta* structMeta) {
-        output << "    " << "uint32_t offset(const fields::_ field) const {" << std::endl;
+        output << "    " << structMeta->offsetTypeStr << " offset(const fields::_ field) const {" << std::endl;
         output << "    " << "    " << "static const table o;" << std::endl;
         output << "    " << "    " << "const table* t = get_table();" << std::endl;
         output << "    " << "    " << "switch (field) {" << std::endl;
@@ -389,7 +398,7 @@ namespace {
                 output << "t->__" << field->name << ";";
             }
             else {
-                output << "m_table_offset + static_cast<uint32_t>(" << std::endl;
+                output << "m_table_offset + static_cast<" << structMeta->offsetTypeStr << ">(" << std::endl;
                 output << "    " << "    " << "    "
                     << "reinterpret_cast<uintptr_t>(&o" << "." << field->name
                     << ") - " << "reinterpret_cast<uintptr_t>(&o" << "));";
@@ -427,7 +436,7 @@ namespace {
                 << ": return reinterpret_cast<uint8_t*>(" << std::endl;
             output << "    " << "    " << "    " << "base_ptr()) + offset(field)";
             if (field->isArray && field->arrayKw == kw::UNDEFINED) {
-                output << " + sizeof(uint32_t)";
+                output << " + sizeof(" << structMeta->offsetTypeStr << ")";
             }
             output << ";" << std::endl;
         }
@@ -441,7 +450,8 @@ namespace {
     }
     void writeStruct_set(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::StructMeta* structMeta) {
-        output << "    " << "void set(const fields::_ field, const void* data, const uint32_t size) {" << std::endl;
+        output << "    " << "void set(const fields::_ field, const void* data, const "
+            << structMeta->offsetTypeStr << " size) {" << std::endl;
         output << "    " << "    " << "if (!has(field)) {" << std::endl;
         output << "    " << "    " << "    " << "if (m_from_ptr) {" << std::endl;
         output << "    " << "    " << "    " << "    " << "return;" << std::endl;
@@ -457,8 +467,8 @@ namespace {
                 << "get_table()->__" << field->name << " = m_buffer->size();" << std::endl;
             // 4. optional scalar            sizeof(typeof(x))
             // 5. optional struct            sizeof(x::table)
-            // 6. optional array of scalars  sizeof(typeof(x)) * size + sizeof(uint32_t)
-            // 7. optional array of structs  sizeof(x::table) * size + sizeof(uint32_t)
+            // 6. optional array of scalars  sizeof(typeof(x)) * size + sizeof(offset)
+            // 7. optional array of structs  sizeof(x::table) * size + sizeof(offset)
             std::string size;
             if (field->isArray) {
                 if (field->arrayKw != kw::UNDEFINED) {
@@ -498,11 +508,15 @@ namespace {
                         }
                     }
                     if (field->isOptional) {
-                        size += " + sizeof(uint32_t)";
+                        size += " + sizeof(";
+                        size += structMeta->offsetTypeStr;
+                        size += ")";
                     }
                 }
                 else {
-                    size = "size + sizeof(uint32_t)";
+                    size = "size + sizeof(";
+                    size += structMeta->offsetTypeStr;
+                    size += ")";
                 }
             }
             output << "    " << "    " << "    " << "    "
@@ -568,55 +582,18 @@ namespace {
                 }
             }
             output << ");" << std::endl;
-
-            //if (field->isArray && field->arrayKw == kw::UNDEFINED) {
-            //    output << " + sizeof(uint32_t)";
-            //}
-            //output << std::endl;
-            //output << "    " << "    " << "    " << "    " << "    "
-            //    << "+ sizeof(";
-            //if (isBuiltInType(field->typeKw)) {
-            //    if (field->typeKw == kw::Bytes) {
-            //        output << kw_to_domain_specific(kw::UInt8);
-            //    }
-            //    else {
-            //        output << kw_to_domain_specific(field->typeKw);
-            //    }
-            //}
-            //else {
-            //    for (const auto& ns : field->typePtr->namespace_) {
-            //        output << ns << "::";
-            //    }
-            //    switch (field->typeKw) {
-            //    case kw::Enum:
-            //        output << kw_to_domain_specific(field->typePtr->enumMeta()->type);
-            //        break;
-            //    case kw::Struct:
-            //        output << field->typePtr->structMeta()->name << "::table";
-            //        break;
-            //    case kw::Union:
-            //        output << field->typePtr->unionMeta()->name << "::table";
-            //        break;
-            //    default:
-            //        output << "%ERROR%";
-            //        break;
-            //    }
-            //}
-            //output << ")";
-            //if (field->isArray && field->arrayKw == kw::UNDEFINED) {
-            //    output << " * size";
-            //}
-            //output << ");" << std::endl;
             if (field->isArray && field->arrayKw == kw::UNDEFINED) {
                 output << "    " << "    " << "    " << "    "
-                    << "*reinterpret_cast<uint32_t*>((reinterpret_cast<uint8_t*>(" << std::endl;
+                    << "*reinterpret_cast<" << structMeta->offsetTypeStr
+                    << "*>((reinterpret_cast<uint8_t*>(" << std::endl;
                 output << "    " << "    " << "    " << "    " << "    "
                     << "base_ptr()) + get_table()->__" << field->name << ")) = size;" << std::endl;
             }
             if (!field->isBuiltIn) {
                 if (field->isArray) {
                     output << "    " << "    " << "    " << "    "
-                        << "for (uint32_t i = 0; i < size; ++i) {" << std::endl;
+                        << "for (" << structMeta->offsetTypeStr
+                        << " i = 0; i < size; ++i) {" << std::endl;
                     output << "    " << "    " << "    " << "    " << "    "
                         << "get_" << field->name << "(i).create(UINT32_MAX);" << std::endl;
                     output << "    " << "    " << "    " << "    "
@@ -642,7 +619,7 @@ namespace {
     }
     void writeStruct_size_field(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::StructMeta* structMeta) {
-        output << "    " << "uint32_t size(const fields::_ field) const {" << std::endl;
+        output << "    " << structMeta->offsetTypeStr << " size(const fields::_ field) const {" << std::endl;
         output << "    " << "    " << "if (!has(field)) {" << std::endl;
         output << "    " << "    " << "    " << "return 0;" << std::endl;
         output << "    " << "    " << "}" << std::endl;
@@ -652,7 +629,8 @@ namespace {
             output << "    " << "    " << "    " << "return ";
             if (field->isArray) {
                 if (field->arrayKw == kw::UNDEFINED) {
-                    output << "*(reinterpret_cast<const uint32_t*>(get(field)) - 1)";
+                    output << "*(reinterpret_cast<const " << structMeta->offsetTypeStr
+                        << "*>(get(field)) - 1)";
                 }
                 else if (isScalarType(field->arrayKw)) {
                     output << field->arraySize;
@@ -761,7 +739,7 @@ namespace {
             }
             output << " get_" << field->name << "(";
             if (field->isArray) {
-                output << "const uint32_t index";
+                output << "const " << structMeta->offsetTypeStr << " index";
             }
             output << ") {" << std::endl;
             if (!field->isBuiltIn && field->typeKw != kw::Enum) {
@@ -777,8 +755,8 @@ namespace {
                     output << "[index]";
                 }
                 output << ";" << std::endl;
-                output << "    " << "    " << "const uint32_t table_offset = "
-                    "reinterpret_cast<const uint8_t*>(" << field->name
+                output << "    " << "    " << "const " << structMeta->offsetTypeStr
+                    << " table_offset = reinterpret_cast<const uint8_t*>(" << field->name
                     << "_t) - base_ptr();" << std::endl;
                 output << "    " << "    " << field->name
                     << ".from(table_offset, m_from_ptr, 0, m_buffer);" << std::endl;
@@ -799,7 +777,7 @@ namespace {
             output << "    " << "}" << std::endl;
             output << "    " << "const " << type << "& get_" << field->name << "(";
             if (field->isArray) {
-                output << "const uint32_t index";
+                output << "const " << structMeta->offsetTypeStr << " index";
             }
             output << ") const {" << std::endl;
             output << "    " << "    " << "return const_cast<" << structMeta->name
@@ -834,7 +812,7 @@ namespace {
             if (field->isArray) {
                 if (field->arrayKw == kw::UNDEFINED) {
                     output << "    " << "void set_" << field->name
-                        << "(const uint32_t size) {" << std::endl;
+                        << "(const " << structMeta->offsetTypeStr << " size) {" << std::endl;
                     output << "    " << "    " << "set(fields::" << field->name
                         << ", nullptr, size);" << std::endl;
                     output << "    " << "}" << std::endl;
@@ -876,7 +854,8 @@ namespace {
                     output << "); " << std::endl;
                     output << "    " << "}" << std::endl;
                 }
-                output << "    " << "uint32_t size_" << field->name << "() const {" << std::endl;
+                output << "    " << structMeta->offsetTypeStr << " size_" << field->name
+                    << "() const {" << std::endl;
                 output << "    " << "    " << "return size(fields::" << field->name << ");" << std::endl;
                 output << "    " << "}" << std::endl;
             }
@@ -914,7 +893,7 @@ namespace {
         for (const auto& field : structMeta->fieldsVec) {
             output << "    " << "    ";
             if (field->isOptional) {
-                output << "uint32_t __";
+                output << structMeta->offsetTypeStr << " __";
             }
             else if (field->isBuiltIn) {
                 if (field->typeKw == kw::Bytes) {
@@ -1026,11 +1005,13 @@ namespace {
     void writeStruct_staff(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::StructMeta* structMeta) {
         output << "    " << "table* get_table() {" << std::endl;
-        output << "    " << "    " << "#ifdef _DEBUG" << std::endl;
-        output << "    " << "    " << "m_table = reinterpret_cast<table*>(" << std::endl;
-        output << "    " << "    " << "    " << "reinterpret_cast<uint8_t*>(base_ptr()) "
-            "+ m_table_offset);" << std::endl;
-        output << "    " << "    " << "#endif // _DEBUG" << std::endl;
+        #ifdef _DEBUG
+            output << "    " << "    " << "#ifdef _DEBUG" << std::endl;
+            output << "    " << "    " << "m_table = reinterpret_cast<table*>(" << std::endl;
+            output << "    " << "    " << "    " << "reinterpret_cast<uint8_t*>(base_ptr()) "
+                "+ m_table_offset);" << std::endl;
+            output << "    " << "    " << "#endif // _DEBUG" << std::endl;
+        #endif // _DEBUG
         output << "    " << "    " << "return reinterpret_cast<table*>(" << std::endl;
         output << "    " << "    " << "    " << "reinterpret_cast<uint8_t*>(base_ptr()) "
             "+ m_table_offset);" << std::endl;
@@ -1052,21 +1033,23 @@ namespace {
         output << "    " << "    " << "return const_cast<"
             << structMeta->name << "*>(this)->base_ptr();" << std::endl;
         output << "    " << "}" << std::endl;
-        output << "    " << "#ifdef _DEBUG" << std::endl;
-        output << "    " << "table* m_table = nullptr;" << std::endl;
-        output << "    " << "#endif // _DEBUG" << std::endl;
+        #ifdef _DEBUG
+            output << "    " << "#ifdef _DEBUG" << std::endl;
+            output << "    " << "table* m_table = nullptr;" << std::endl;
+            output << "    " << "#endif // _DEBUG" << std::endl;
+        #endif // _DEBUG
         output << "    " << "std::shared_ptr<std::vector<uint8_t>> m_buffer;" << std::endl;
         output << "    " << "uint8_t* m_from_ptr = nullptr;" << std::endl;
-        output << "    " << "mutable uint32_t m_from_size = 0;" << std::endl;
-        output << "    " << "uint32_t m_table_offset = 0;" << std::endl;
+        output << "    " << "mutable " << structMeta->offsetTypeStr << " m_from_size = 0;" << std::endl;
+        output << "    " << structMeta->offsetTypeStr << " m_table_offset = 0;" << std::endl;
     }
     void writeStruct(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::ObjectMeta* objectMeta) {
         const AST::StructMeta* structMeta = objectMeta->structMeta();
-        std::cout << "struct " << structMeta->name << std::endl;
         if (structMeta->fieldsVec.empty()) {
             return;
         }
+        structMeta->offsetTypeStr = kw_to_domain_specific(structMeta->offsetType);
         output << std::endl;
         output << "class " << structMeta->name << " { // struct " << structMeta->name << std::endl;
         output << "public:" << std::endl;
@@ -1074,11 +1057,13 @@ namespace {
         //output << "    " << structMeta->name << "(const uint32_t reserve = 0) {" << std::endl;
         //output << "    " << "    " << "create(reserve);" << std::endl;
         //output << "    " << "}" << std::endl;
-        output << "    " << structMeta->name << "(void* from_ptr) {" << std::endl;
-        output << "    " << "    " << "from(from_ptr);" << std::endl;
+        output << "    " << structMeta->name << "(void* from_ptr, const "
+            << structMeta->offsetTypeStr << " from_size = 0) {" << std::endl;
+        output << "    " << "    " << "from(from_ptr, from_size);" << std::endl;
         output << "    " << "}" << std::endl;
-        output << "    " << structMeta->name << "(const void* from_ptr) {" << std::endl;
-        output << "    " << "    " << "from(from_ptr);" << std::endl;
+        output << "    " << structMeta->name << "(const void* from_ptr, const "
+            << structMeta->offsetTypeStr << " from_size = 0) {" << std::endl;
+        output << "    " << "    " << "from(from_ptr, from_size);" << std::endl;
         output << "    " << "}" << std::endl;
         writeStruct_create(writingMeta, output, ast, structMeta);
         writeStruct_from_to(writingMeta, output, ast, structMeta);
@@ -1087,7 +1072,7 @@ namespace {
             writingMeta.spacing = "    ";
             std::unique_ptr<AST::EnumMeta> enumField = std::make_unique<AST::EnumMeta>();
             enumField->name = "fields";
-            enumField->type = kw::UInt32;
+            enumField->type = structMeta->offsetType;
             for (uint32_t i = 0; i < structMeta->fieldsVec.size(); ++i) {
                 const auto& field = structMeta->fieldsVec[i];
                 enumField->valuesVec.emplace_back(field->name, i);
@@ -1129,6 +1114,14 @@ namespace {
 
     void writeUnion_create(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::UnionMeta* unionMeta) {
+        output << "    " << "void create(void* external_ptr, const "
+            << unionMeta->offsetTypeStr << " external_size) {" << std::endl;
+        output << "    " << "    " << "m_table_offset = 0;" << std::endl;
+        output << "    " << "    " << "m_from_ptr = reinterpret_cast<uint8_t*>(external_ptr);" << std::endl;
+        output << "    " << "    " << "m_from_size = external_size;" << std::endl;
+        output << "    " << "    " << "m_buffer.reset();" << std::endl;
+        output << "    " << "    " << "create(UINT32_MAX);" << std::endl;
+        output << "    " << "}" << std::endl;
         output << "    " << "void create(const uint32_t reserve = 0) {" << std::endl;
         output << "    " << "    " << "if (reserve != UINT32_MAX) {" << std::endl;
         output << "    " << "    " << "    " << "m_table_offset = 0;" << std::endl;
@@ -1144,7 +1137,8 @@ namespace {
     }
     void writeUnion_from_to(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::UnionMeta* unionMeta) {
-        output << "    " << "bool from(void* from_ptr, const uint32_t from_size = 0) {" << std::endl;
+        output << "    " << "bool from(void* from_ptr, const "
+            << unionMeta->offsetTypeStr << " from_size = 0) {" << std::endl;
         output << "    " << "    " << "m_table_offset = 0;" << std::endl;
         output << "    " << "    " << "m_buffer.reset();" << std::endl;
         //TODO: m_is_read_only
@@ -1167,12 +1161,14 @@ namespace {
         output << "    " << "    " << "}" << std::endl;
         output << "    " << "    " << "return true;" << std::endl;
         output << "    " << "}" << std::endl;
-        output << "    " << "bool from(const void* from_ptr) {" << std::endl;
-        output << "    " << "    " << "return from(const_cast<void*>(from_ptr));" << std::endl;
+        output << "    " << "bool from(const void* from_ptr, const "
+            << unionMeta->offsetTypeStr << " from_size = 0) {" << std::endl;
+        output << "    " << "    " << "return from(const_cast<void*>(from_ptr), from_size);" << std::endl;
         output << "    " << "}" << std::endl;
-        output << "    " << "void from(uint32_t table_offset, const void* from_ptr," << std::endl;
-        output << "    " << "    " << "    " << "const uint32_t from_size, "
-            "std::shared_ptr<std::vector<uint8_t>> buffer) {" << std::endl;
+        output << "    " << "void from(" << unionMeta->offsetTypeStr
+            << " table_offset, const void* from_ptr," << std::endl;
+        output << "    " << "    " << "    " << "const " << unionMeta->offsetTypeStr
+            << " from_size, std::shared_ptr<std::vector<uint8_t>> buffer) {" << std::endl;
         output << "    " << "    " << "m_table_offset = table_offset;" << std::endl;
         output << "    " << "    " << "m_buffer = buffer;" << std::endl;
         output << "    " << "    " << "m_from_ptr = reinterpret_cast<uint8_t*>("
@@ -1195,7 +1191,7 @@ namespace {
     }
     void writeUnion_size(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::UnionMeta* unionMeta) {
-        output << "    " << "uint32_t size(const uint8_t calculate = 0) const {" << std::endl;
+        output << "    " << unionMeta->offsetTypeStr << " size(const uint8_t calculate = 0) const {" << std::endl;
         output << "    " << "    " << "if (m_from_ptr) {" << std::endl;
         output << "    " << "    " << "    " << "if (calculate > 0) {" << std::endl;
         output << "    " << "    " << "    " << "    " << "m_from_size = 0;" << std::endl;
@@ -1208,29 +1204,29 @@ namespace {
                 << "case fields::" << field->name << ":" << std::endl;
             // 4. optional scalar            size_x()
             // 5. optional struct            get_x().size(2)
-            // 6. optional array of scalars  sizeof(uint32_t) + size_x() * sizeof(typeof(x))
-            // 7. optional array of structs  sizeof(uint32_t) + for size_x(): get_x(i).size(2)
+            // 6. optional array of scalars  sizeof(offset) + size_x() * sizeof(typeof(x))
+            // 7. optional array of structs  sizeof(offset) + for size_x(): get_x(i).size(2)
             if (field->typeKw == kw::Bytes) {
                 output << "    " << "    " << "    " << "    " << "    "
                     << "m_from_size += size_" << field->name
-                    << "() + sizeof(uint32_t);" << std::endl;
+                    << "() + sizeof(" << unionMeta->offsetTypeStr << ");" << std::endl;
             }
             else if (field->isArray) {
                 if (field->isScalar) { // 6
                     output << "    " << "    " << "    " << "    " << "    "
                         << "m_from_size += size_" << field->name << "() * sizeof("
                         << kw_to_domain_specific(field->typeKw)
-                        << ") + sizeof(uint32_t);" << std::endl;
+                        << ") + sizeof(" << unionMeta->offsetTypeStr << ");" << std::endl;
                 }
                 else { // 7
                     output << "    " << "    " << "    " << "    " << "    "
-                        << "for (uint32_t i = 0, s = size_" << field->name
+                        << "for (" << unionMeta->offsetTypeStr << " i = 0, s = size_" << field->name
                         << "(); i < s; ++i) {" << std::endl;
                     output << "    " << "    " << "    " << "    " << "    "
                         << "    " << "m_from_size += get_" << field->name
                         << "(i).size(1);" << std::endl;
                     output << "    " << "    " << "    " << "    " << "    "
-                        << "} m_from_size += sizeof(uint32_t);" << std::endl;
+                        << "} m_from_size += sizeof(" << unionMeta->offsetTypeStr << ");" << std::endl;
                 }
             }
             else {
@@ -1254,7 +1250,7 @@ namespace {
         output << "    " << "    " << "}" << std::endl;
         output << "    " << "    " << "if (m_buffer) {" << std::endl;
         output << "    " << "    " << "    "
-            << "return static_cast<uint32_t>(m_buffer->size());" << std::endl;
+            << "return static_cast<" << unionMeta->offsetTypeStr << ">(m_buffer->size());" << std::endl;
         output << "    " << "    " << "}" << std::endl;
         output << "    " << "    " << "return 0;" << std::endl;
         output << "    " << "}" << std::endl;
@@ -1269,16 +1265,16 @@ namespace {
             default: break;
             }
         }
-        output << "    " << "static uint32_t size_min() {" << std::endl;
+        output << "    " << "static " << unionMeta->offsetTypeStr << " size_min() {" << std::endl;
         output << "    " << "    " << "return " << sizeMin << ";" << std::endl;
         output << "    " << "}" << std::endl;
-        output << "    " << "static uint32_t size_max() {" << std::endl;
+        output << "    " << "static " << unionMeta->offsetTypeStr << " size_max() {" << std::endl;
         output << "    " << "    " << "return " << sizeMax << ";" << std::endl;
         output << "    " << "}" << std::endl;
     }
     void writeUnion_offset(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::UnionMeta* unionMeta) {
-        output << "    " << "uint32_t offset() const {" << std::endl;
+        output << "    " << unionMeta->offsetTypeStr << " offset() const {" << std::endl;
         output << "    " << "    " << "return get_table()->offset;" << std::endl;
         output << "    " << "}" << std::endl;
     }
@@ -1298,7 +1294,7 @@ namespace {
             output << "    " << "    "
                 << "    " << "base_ptr()) + offset()";
             if (field->isArray) {
-                output << " + sizeof(uint32_t)";
+                output << " + sizeof(" << unionMeta->offsetTypeStr << ")";
             }
             output << ";" << std::endl;
         }
@@ -1313,21 +1309,22 @@ namespace {
     }
     void writeUnion_set(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::UnionMeta* unionMeta) {
-        output << "    " << "void set(const fields::_ field, const void* data, const uint32_t size) {" << std::endl;
+        output << "    " << "void set(const fields::_ field, const void* data, const "
+            << unionMeta->offsetTypeStr << " size) {" << std::endl;
         output << "    " << "    " << "if (get_table()->variant == fields::_SPECIAL_) {" << std::endl;
         output << "    " << "    " << "    " << "if (m_from_ptr) {" << std::endl;
         output << "    " << "    " << "    " << "    " << "return;" << std::endl;
         output << "    " << "    " << "    " << "}" << std::endl;
         output << "    " << "    " << "    " << "get_table()->variant = field;" << std::endl;
         output << "    " << "    " << "    " << "get_table()->offset = "
-            "static_cast<uint32_t>(m_buffer->size());" << std::endl;
+            "static_cast<" << unionMeta->offsetTypeStr << ">(m_buffer->size());" << std::endl;
         output << "    " << "    " << "    " << "switch (field) {" << std::endl;
         for (const auto& field : unionMeta->fieldsVec) {
             output << "    " << "    " << "    " << "case fields::" << field->name
                 << ":" << std::endl;
             output << "    " << "    " << "    " << "    " << "m_buffer->resize(m_buffer->size()";
             if (field->isArray) {
-                output << " + sizeof(uint32_t)" << std::endl;
+                output << " + sizeof(" << unionMeta->offsetTypeStr << ")" << std::endl;
                 output << "    " << "    " << "    " << "    " << "    "
                     << "+ size * sizeof(";
                 if (field->isBuiltIn || field->typeKw == kw::Bytes) {
@@ -1359,7 +1356,8 @@ namespace {
                 }
                 output << "));" << std::endl;
                 output << "    " << "    " << "    " << "    "
-                    << "*reinterpret_cast<uint32_t*>((reinterpret_cast<uint8_t*>(" << std::endl;
+                    << "*reinterpret_cast<" << unionMeta->offsetTypeStr
+                    << "*>((reinterpret_cast<uint8_t*>(" << std::endl;
                 output << "    " << "    " << "    " << "    "
                     << "    " << "base_ptr()) + get_table()->offset)) = size;" << std::endl;
             }
@@ -1397,7 +1395,8 @@ namespace {
             if (!field->isBuiltIn && field->typeKw != kw::Enum) {
                 if (field->isArray) {
                     output << "    " << "    " << "    " << "    "
-                        << "for (uint32_t i = 0; i < size; ++i) {" << std::endl;
+                        << "for (" << unionMeta->offsetTypeStr
+                        << " i = 0; i < size; ++i) {" << std::endl;
                     output << "    " << "    " << "    " << "    " << "    "
                         << "get_" << field->name << "(i).create(UINT32_MAX);" << std::endl;
                     output << "    " << "    " << "    " << "    "
@@ -1422,7 +1421,7 @@ namespace {
     }
     void writeUnion_size_field(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::UnionMeta* unionMeta) {
-        output << "    " << "uint32_t size(const fields::_ field) const {" << std::endl;
+        output << "    " << unionMeta->offsetTypeStr << " size(const fields::_ field) const {" << std::endl;
         output << "    " << "    " << "if (!has(field)) {" << std::endl;
         output << "    " << "    " << "    " << "return 0;" << std::endl;
         output << "    " << "    " << "}" << std::endl;
@@ -1432,7 +1431,8 @@ namespace {
             output << "    " << "    " << "    " << "return ";
             if (field->isArray) {
                 if (field->arrayKw == kw::UNDEFINED) {
-                    output << "*(reinterpret_cast<const uint32_t*>(get(field)) - 1)";
+                    output << "*(reinterpret_cast<const " << unionMeta->offsetTypeStr
+                        << "*>(get(field)) - 1)";
                 }
                 else if (isScalarType(field->arrayKw)) {
                     output << field->arraySize;
@@ -1539,7 +1539,7 @@ namespace {
             }
             output << " get_" << field->name << "(";
             if (field->isArray) {
-                output << "const uint32_t index";
+                output << "const " << unionMeta->offsetTypeStr << " index";
             }
             output << ") {" << std::endl;
             if (!field->isBuiltIn && field->typeKw != kw::Enum) {
@@ -1555,8 +1555,8 @@ namespace {
                     output << "[index]";
                 }
                 output << ";" << std::endl;
-                output << "    " << "    " << "const uint32_t table_offset = "
-                    "reinterpret_cast<const uint8_t*>(" << field->name
+                output << "    " << "    " << "const " << unionMeta->offsetTypeStr
+                    << " table_offset = reinterpret_cast<const uint8_t*>(" << field->name
                     << "_t) - base_ptr();" << std::endl;
                 output << "    " << "    " << field->name
                     << ".from(table_offset, m_from_ptr, 0, m_buffer);" << std::endl;
@@ -1577,7 +1577,7 @@ namespace {
             output << "    " << "}" << std::endl;
             output << "    " << "const " << type << "& get_" << field->name << "(";
             if (field->isArray) {
-                output << "const uint32_t index";
+                output << "const " << unionMeta->offsetTypeStr << " index";
             }
             output << ") const {" << std::endl;
             output << "    " << "    " << "return const_cast<" << unionMeta->name
@@ -1612,7 +1612,7 @@ namespace {
             if (field->isArray) {
                 if (field->arrayKw == kw::UNDEFINED) {
                     output << "    " << "void set_" << field->name
-                        << "(const uint32_t size) {" << std::endl;
+                        << "(const " << unionMeta->offsetTypeStr << " size) {" << std::endl;
                     output << "    " << "    " << "set(fields::" << field->name
                         << ", nullptr, size);" << std::endl;
                     output << "    " << "}" << std::endl;
@@ -1654,7 +1654,8 @@ namespace {
                     output << "); " << std::endl;
                     output << "    " << "}" << std::endl;
                 }
-                output << "    " << "uint32_t size_" << field->name << "() const {" << std::endl;
+                output << "    " << unionMeta->offsetTypeStr << " size_" << field->name
+                    << "() const {" << std::endl;
                 output << "    " << "    " << "return size(fields::" << field->name << ");" << std::endl;
                 output << "    " << "}" << std::endl;
             }
@@ -1690,18 +1691,20 @@ namespace {
         output << "    " << "#pragma pack(1)" << std::endl;
         output << "    " << "struct table {" << std::endl;
         output << "    " << "    " << "fields::_ variant = fields::_SPECIAL_;" << std::endl;
-        output << "    " << "    " << "uint32_t offset = 0;" << std::endl;
+        output << "    " << "    " << unionMeta->offsetTypeStr << " offset = 0;" << std::endl;
         output << "    " << "};" << std::endl;
         output << "    " << "#pragma pack()" << std::endl;
     }
     void writeUnion_staff(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::UnionMeta* unionMeta) {
         output << "    " << "table* get_table() {" << std::endl;
-        output << "    " << "    " << "#ifdef _DEBUG" << std::endl;
-        output << "    " << "    " << "m_table = reinterpret_cast<table*>(" << std::endl;
-        output << "    " << "    " << "    " << "reinterpret_cast<uint8_t*>(base_ptr()) "
-            "+ m_table_offset);" << std::endl;
-        output << "    " << "    " << "#endif // _DEBUG" << std::endl;
+        #ifdef _DEBUG
+            output << "    " << "    " << "#ifdef _DEBUG" << std::endl;
+            output << "    " << "    " << "m_table = reinterpret_cast<table*>(" << std::endl;
+            output << "    " << "    " << "    " << "reinterpret_cast<uint8_t*>(base_ptr()) "
+                "+ m_table_offset);" << std::endl;
+            output << "    " << "    " << "#endif // _DEBUG" << std::endl;
+        #endif // _DEBUG
         output << "    " << "    " << "return reinterpret_cast<table*>(" << std::endl;
         output << "    " << "    " << "    " << "reinterpret_cast<uint8_t*>(base_ptr()) "
             "+ m_table_offset);" << std::endl;
@@ -1723,21 +1726,23 @@ namespace {
         output << "    " << "    " << "return const_cast<"
             << unionMeta->name << "*>(this)->base_ptr();" << std::endl;
         output << "    " << "}" << std::endl;
-        output << "    " << "#ifdef _DEBUG" << std::endl;
-        output << "    " << "table* m_table = nullptr;" << std::endl;
-        output << "    " << "#endif // _DEBUG" << std::endl;
+        #ifdef _DEBUG
+            output << "    " << "#ifdef _DEBUG" << std::endl;
+            output << "    " << "table* m_table = nullptr;" << std::endl;
+            output << "    " << "#endif // _DEBUG" << std::endl;
+        #endif // _DEBUG
         output << "    " << "std::shared_ptr<std::vector<uint8_t>> m_buffer;" << std::endl;
         output << "    " << "uint8_t* m_from_ptr = nullptr;" << std::endl;
-        output << "    " << "mutable uint32_t m_from_size = 0;" << std::endl;
-        output << "    " << "uint32_t m_table_offset = 0;" << std::endl;
+        output << "    " << "mutable " << unionMeta->offsetTypeStr << " m_from_size = 0;" << std::endl;
+        output << "    " << unionMeta->offsetTypeStr << " m_table_offset = 0;" << std::endl;
     }
     void writeUnion(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::ObjectMeta* objectMeta) {
         const AST::UnionMeta* unionMeta = objectMeta->unionMeta();
-        std::cout << "union " << unionMeta->name << std::endl;
         if (unionMeta->fieldsVec.empty()) {
             return;
         }
+        unionMeta->offsetTypeStr = kw_to_domain_specific(unionMeta->offsetType);
         output << std::endl;
         output << "class " << unionMeta->name << " { // union " << unionMeta->name << std::endl;
         output << "public:" << std::endl;
@@ -1745,11 +1750,13 @@ namespace {
         //output << "    " << unionMeta->name << "(const uint32_t reserve = 0) {" << std::endl;
         //output << "    " << "    " << "create(reserve);" << std::endl;
         //output << "    " << "}" << std::endl;
-        output << "    " << unionMeta->name << "(void* from_ptr) {" << std::endl;
-        output << "    " << "    " << "from(from_ptr);" << std::endl;
+        output << "    " << unionMeta->name << "(void* from_ptr, const "
+            << unionMeta->offsetTypeStr << " from_size = 0) {" << std::endl;
+        output << "    " << "    " << "from(from_ptr, from_size);" << std::endl;
         output << "    " << "}" << std::endl;
-        output << "    " << unionMeta->name << "(const void* from_ptr) {" << std::endl;
-        output << "    " << "    " << "from(from_ptr);" << std::endl;
+        output << "    " << unionMeta->name << "(const void* from_ptr, const "
+            << unionMeta->offsetTypeStr << " from_size = 0) {" << std::endl;
+        output << "    " << "    " << "from(from_ptr, from_size);" << std::endl;
         output << "    " << "}" << std::endl;
         writeUnion_create(writingMeta, output, ast, unionMeta);
         writeUnion_from_to(writingMeta, output, ast, unionMeta);
@@ -1758,7 +1765,7 @@ namespace {
             writingMeta.spacing = "    ";
             std::unique_ptr<AST::EnumMeta> enumField = std::make_unique<AST::EnumMeta>();
             enumField->name = "fields";
-            enumField->type = kw::UInt32;
+            enumField->type = unionMeta->offsetType;
             for (uint32_t i = 0; i < unionMeta->fieldsVec.size(); ++i) {
                 const auto& field = unionMeta->fieldsVec[i];
                 enumField->valuesVec.emplace_back(field->name, i);
