@@ -21,7 +21,7 @@ enum _ : uint8_t {
     BLUE = 4,
     _SPECIAL_ = 5
 };
-static constexpr const char* to_string(const _ enum_value) {
+static const char* to_string(const _ enum_value) {
     switch(enum_value) {
     case RED: return "RED";
     case GREEN: return "GREEN";
@@ -55,7 +55,7 @@ static constexpr _ max() {
 static constexpr uint8_t count() {
     return 3;
 }
-static constexpr _ at(const uint8_t index) {
+static _ at(const uint8_t index) {
     switch (index) {
     case 0: return RED;
     case 1: return GREEN;
@@ -75,11 +75,10 @@ public:
     ScalarTypes(const void* from_ptr, const uint8_t from_size = 0) {
         from(from_ptr, from_size);
     }
-    void create(void* external_ptr, const uint8_t external_size) {
+    void create(std::shared_ptr<std::vector<uint8_t>> buffer) {
         m_table_offset = 0;
-        m_from_ptr = reinterpret_cast<uint8_t*>(external_ptr);
-        m_from_size = external_size;
-        m_buffer.reset();
+        m_from_ptr = nullptr;
+        m_buffer = buffer;
         create(UINT32_MAX);
     }
     void create(const uint32_t reserve = 0) {
@@ -96,7 +95,6 @@ public:
     bool from(void* from_ptr, const uint8_t from_size = 0) {
         m_table_offset = 0;
         m_buffer.reset();
-        //TODO: m_is_read_only
         if (from_ptr == nullptr) {
             return false;
         }
@@ -175,7 +173,7 @@ public:
         f = 5,
         _SPECIAL_ = 6
     };
-    static constexpr const char* to_string(const _ enum_value) {
+    static const char* to_string(const _ enum_value) {
         switch(enum_value) {
         case a: return "a";
         case b: return "b";
@@ -215,7 +213,7 @@ public:
     static constexpr uint8_t count() {
         return 6;
     }
-    static constexpr _ at(const uint8_t index) {
+    static _ at(const uint8_t index) {
         switch (index) {
         case 0: return a;
         case 1: return b;
@@ -230,7 +228,7 @@ public:
     }; // enum fields
 
     uint8_t offset(const fields::_ field) const {
-        static const table o;
+        static const table o{};
         const table* t = get_table();
         switch (field) {
         case fields::a: return m_table_offset + static_cast<uint8_t>(
@@ -244,7 +242,7 @@ public:
         case fields::f: return m_table_offset + static_cast<uint8_t>(
             reinterpret_cast<uintptr_t>(&o.f) - reinterpret_cast<uintptr_t>(&o));
         }
-        return UINT32_MAX;
+        return 0;
     }
     bool has(const fields::_ field) const {
         switch (field) {
@@ -284,12 +282,12 @@ public:
             }
             switch (field) {
             case fields::c:
-                get_table()->__c = m_buffer->size();
+                get_table()->__c = static_cast<uint8_t>(m_buffer->size());
                 m_buffer->resize(m_buffer->size()
                     + sizeof(int32_t));
                 break;
             case fields::d:
-                get_table()->__d = m_buffer->size();
+                get_table()->__d = static_cast<uint8_t>(m_buffer->size());
                 m_buffer->resize(m_buffer->size()
                     + sizeof(uint64_t));
                 break;
@@ -450,11 +448,10 @@ public:
     Vec3f(const void* from_ptr, const uint32_t from_size = 0) {
         from(from_ptr, from_size);
     }
-    void create(void* external_ptr, const uint32_t external_size) {
+    void create(std::shared_ptr<std::vector<uint8_t>> buffer) {
         m_table_offset = 0;
-        m_from_ptr = reinterpret_cast<uint8_t*>(external_ptr);
-        m_from_size = external_size;
-        m_buffer.reset();
+        m_from_ptr = nullptr;
+        m_buffer = buffer;
         create(UINT32_MAX);
     }
     void create(const uint32_t reserve = 0) {
@@ -471,7 +468,6 @@ public:
     bool from(void* from_ptr, const uint32_t from_size = 0) {
         m_table_offset = 0;
         m_buffer.reset();
-        //TODO: m_is_read_only
         if (from_ptr == nullptr) {
             return false;
         }
@@ -541,7 +537,7 @@ public:
         z = 2,
         _SPECIAL_ = 3
     };
-    static constexpr const char* to_string(const _ enum_value) {
+    static const char* to_string(const _ enum_value) {
         switch(enum_value) {
         case x: return "x";
         case y: return "y";
@@ -575,7 +571,7 @@ public:
     static constexpr uint32_t count() {
         return 3;
     }
-    static constexpr _ at(const uint32_t index) {
+    static _ at(const uint32_t index) {
         switch (index) {
         case 0: return x;
         case 1: return y;
@@ -587,7 +583,7 @@ public:
     }; // enum fields
 
     uint32_t offset(const fields::_ field) const {
-        static const table o;
+        static const table o{};
         const table* t = get_table();
         switch (field) {
         case fields::x: return m_table_offset + static_cast<uint32_t>(
@@ -597,7 +593,7 @@ public:
         case fields::z: return m_table_offset + static_cast<uint32_t>(
             reinterpret_cast<uintptr_t>(&o.z) - reinterpret_cast<uintptr_t>(&o));
         }
-        return UINT32_MAX;
+        return 0;
     }
     bool has(const fields::_ field) const {
         switch (field) {
@@ -625,9 +621,6 @@ public:
         if (!has(field)) {
             if (m_from_ptr) {
                 return;
-            }
-            switch (field) {
-            default: return;
             }
         }
         if (data) {
@@ -741,11 +734,10 @@ public:
     Arrays(const void* from_ptr, const uint16_t from_size = 0) {
         from(from_ptr, from_size);
     }
-    void create(void* external_ptr, const uint16_t external_size) {
+    void create(std::shared_ptr<std::vector<uint8_t>> buffer) {
         m_table_offset = 0;
-        m_from_ptr = reinterpret_cast<uint8_t*>(external_ptr);
-        m_from_size = external_size;
-        m_buffer.reset();
+        m_from_ptr = nullptr;
+        m_buffer = buffer;
         create(UINT32_MAX);
     }
     void create(const uint32_t reserve = 0) {
@@ -762,7 +754,6 @@ public:
     bool from(void* from_ptr, const uint16_t from_size = 0) {
         m_table_offset = 0;
         m_buffer.reset();
-        //TODO: m_is_read_only
         if (from_ptr == nullptr) {
             return false;
         }
@@ -844,7 +835,7 @@ public:
         v = 3,
         _SPECIAL_ = 4
     };
-    static constexpr const char* to_string(const _ enum_value) {
+    static const char* to_string(const _ enum_value) {
         switch(enum_value) {
         case f: return "f";
         case b: return "b";
@@ -880,7 +871,7 @@ public:
     static constexpr uint16_t count() {
         return 4;
     }
-    static constexpr _ at(const uint16_t index) {
+    static _ at(const uint16_t index) {
         switch (index) {
         case 0: return f;
         case 1: return b;
@@ -893,7 +884,7 @@ public:
     }; // enum fields
 
     uint16_t offset(const fields::_ field) const {
-        static const table o;
+        static const table o{};
         const table* t = get_table();
         switch (field) {
         case fields::f: return t->__f;
@@ -902,7 +893,7 @@ public:
         case fields::m: return t->__m;
         case fields::v: return t->__v;
         }
-        return UINT32_MAX;
+        return 0;
     }
     bool has(const fields::_ field) const {
         switch (field) {
@@ -936,19 +927,19 @@ public:
             }
             switch (field) {
             case fields::f:
-                get_table()->__f = m_buffer->size();
+                get_table()->__f = static_cast<uint16_t>(m_buffer->size());
                 m_buffer->resize(m_buffer->size()
                     + sizeof(uint8_t) * 16 + sizeof(uint16_t));
                 break;
             case fields::m:
-                get_table()->__m = m_buffer->size();
+                get_table()->__m = static_cast<uint16_t>(m_buffer->size());
                 m_buffer->resize(m_buffer->size()
                     + sizeof(int16_t) * size + sizeof(uint16_t));
                 *reinterpret_cast<uint16_t*>((reinterpret_cast<uint8_t*>(
                     base_ptr()) + get_table()->__m)) = size;
                 break;
             case fields::v:
-                get_table()->__v = m_buffer->size();
+                get_table()->__v = static_cast<uint16_t>(m_buffer->size());
                 m_buffer->resize(m_buffer->size()
                     + sizeof(ExtNS::IntNS::Vec3f::table) * size + sizeof(uint16_t));
                 *reinterpret_cast<uint16_t*>((reinterpret_cast<uint8_t*>(
@@ -1033,7 +1024,9 @@ public:
     ExtNS::IntNS::Vec3f& get_v(const uint16_t index) {
         static thread_local ExtNS::IntNS::Vec3f v;
         const auto v_t = &reinterpret_cast<ExtNS::IntNS::Vec3f::table*>(get(fields::v))[index];
-        const uint16_t table_offset = reinterpret_cast<const uint8_t*>(v_t) - base_ptr();
+        const uint16_t table_offset = static_cast<uint16_t>(
+            reinterpret_cast<const uint8_t*>(v_t)
+            - reinterpret_cast<const uint8_t*>(base_ptr()));
         v.from(table_offset, m_from_ptr, 0, m_buffer);
         return v;
     }
@@ -1097,11 +1090,10 @@ public:
     Variant(const void* from_ptr, const uint8_t from_size = 0) {
         from(from_ptr, from_size);
     }
-    void create(void* external_ptr, const uint8_t external_size) {
+    void create(std::shared_ptr<std::vector<uint8_t>> buffer) {
         m_table_offset = 0;
-        m_from_ptr = reinterpret_cast<uint8_t*>(external_ptr);
-        m_from_size = external_size;
-        m_buffer.reset();
+        m_from_ptr = nullptr;
+        m_buffer = buffer;
         create(UINT32_MAX);
     }
     void create(const uint32_t reserve = 0) {
@@ -1118,7 +1110,6 @@ public:
     bool from(void* from_ptr, const uint8_t from_size = 0) {
         m_table_offset = 0;
         m_buffer.reset();
-        //TODO: m_is_read_only
         if (from_ptr == nullptr) {
             return false;
         }
@@ -1200,7 +1191,7 @@ public:
         arr = 2,
         _SPECIAL_ = 3
     };
-    static constexpr const char* to_string(const _ enum_value) {
+    static const char* to_string(const _ enum_value) {
         switch(enum_value) {
         case color: return "color";
         case data: return "data";
@@ -1234,7 +1225,7 @@ public:
     static constexpr uint8_t count() {
         return 3;
     }
-    static constexpr _ at(const uint8_t index) {
+    static _ at(const uint8_t index) {
         switch (index) {
         case 0: return color;
         case 1: return data;
@@ -1247,6 +1238,9 @@ public:
 
     uint8_t offset() const {
         return get_table()->offset;
+    }
+    fields::_ variant() const {
+        return get_table()->variant;
     }
     bool has(const fields::_ field) const {
         return get_table()->variant == field;
@@ -1331,7 +1325,9 @@ public:
     ExtNS::IntNS::Arrays& get_data() {
         static thread_local ExtNS::IntNS::Arrays data;
         const auto data_t = reinterpret_cast<ExtNS::IntNS::Arrays::table*>(get(fields::data));
-        const uint8_t table_offset = reinterpret_cast<const uint8_t*>(data_t) - base_ptr();
+        const uint8_t table_offset = static_cast<uint8_t>(
+            reinterpret_cast<const uint8_t*>(data_t)
+            - reinterpret_cast<const uint8_t*>(base_ptr()));
         data.from(table_offset, m_from_ptr, 0, m_buffer);
         return data;
     }
@@ -1405,11 +1401,10 @@ public:
     AnotherOne(const void* from_ptr, const uint32_t from_size = 0) {
         from(from_ptr, from_size);
     }
-    void create(void* external_ptr, const uint32_t external_size) {
+    void create(std::shared_ptr<std::vector<uint8_t>> buffer) {
         m_table_offset = 0;
-        m_from_ptr = reinterpret_cast<uint8_t*>(external_ptr);
-        m_from_size = external_size;
-        m_buffer.reset();
+        m_from_ptr = nullptr;
+        m_buffer = buffer;
         create(UINT32_MAX);
     }
     void create(const uint32_t reserve = 0) {
@@ -1427,7 +1422,6 @@ public:
     bool from(void* from_ptr, const uint32_t from_size = 0) {
         m_table_offset = 0;
         m_buffer.reset();
-        //TODO: m_is_read_only
         if (from_ptr == nullptr) {
             return false;
         }
@@ -1504,7 +1498,7 @@ public:
         someData = 4,
         _SPECIAL_ = 5
     };
-    static constexpr const char* to_string(const _ enum_value) {
+    static const char* to_string(const _ enum_value) {
         switch(enum_value) {
         case string: return "string";
         case variant: return "variant";
@@ -1542,7 +1536,7 @@ public:
     static constexpr uint32_t count() {
         return 5;
     }
-    static constexpr _ at(const uint32_t index) {
+    static _ at(const uint32_t index) {
         switch (index) {
         case 0: return string;
         case 1: return variant;
@@ -1556,7 +1550,7 @@ public:
     }; // enum fields
 
     uint32_t offset(const fields::_ field) const {
-        static const table o;
+        static const table o{};
         const table* t = get_table();
         switch (field) {
         case fields::string: return t->__string;
@@ -1568,7 +1562,7 @@ public:
         case fields::someData: return m_table_offset + static_cast<uint32_t>(
             reinterpret_cast<uintptr_t>(&o.someData) - reinterpret_cast<uintptr_t>(&o));
         }
-        return UINT32_MAX;
+        return 0;
     }
     bool has(const fields::_ field) const {
         switch (field) {
@@ -1605,14 +1599,14 @@ public:
             }
             switch (field) {
             case fields::string:
-                get_table()->__string = m_buffer->size();
+                get_table()->__string = static_cast<uint32_t>(m_buffer->size());
                 m_buffer->resize(m_buffer->size()
                     + sizeof(uint8_t) * size + sizeof(uint32_t));
                 *reinterpret_cast<uint32_t*>((reinterpret_cast<uint8_t*>(
                     base_ptr()) + get_table()->__string)) = size;
                 break;
             case fields::variant:
-                get_table()->__variant = m_buffer->size();
+                get_table()->__variant = static_cast<uint32_t>(m_buffer->size());
                 m_buffer->resize(m_buffer->size()
                     + sizeof(ExtNS::IntNS::Variant::table));
                 get_variant().create(UINT32_MAX);
@@ -1667,7 +1661,7 @@ public:
     }
     template <typename bytes_t>
     void set_string(const bytes_t& bytes) {
-        set(fields::string, bytes.data(), bytes.size());
+        set(fields::string, bytes.data(), static_cast<uint32_t>(bytes.size()));
     }
     void set_string(const uint32_t size) {
         set(fields::string, nullptr, size);
@@ -1681,7 +1675,9 @@ public:
     ExtNS::IntNS::Variant& get_variant() {
         static thread_local ExtNS::IntNS::Variant variant;
         const auto variant_t = reinterpret_cast<ExtNS::IntNS::Variant::table*>(get(fields::variant));
-        const uint32_t table_offset = reinterpret_cast<const uint8_t*>(variant_t) - base_ptr();
+        const uint32_t table_offset = static_cast<uint32_t>(
+            reinterpret_cast<const uint8_t*>(variant_t)
+            - reinterpret_cast<const uint8_t*>(base_ptr()));
         variant.from(table_offset, m_from_ptr, 0, m_buffer);
         return variant;
     }
@@ -1721,7 +1717,9 @@ public:
     AdditionalNS::SomeType& get_someData() {
         static thread_local AdditionalNS::SomeType someData;
         const auto someData_t = reinterpret_cast<AdditionalNS::SomeType::table*>(get(fields::someData));
-        const uint32_t table_offset = reinterpret_cast<const uint8_t*>(someData_t) - base_ptr();
+        const uint32_t table_offset = static_cast<uint32_t>(
+            reinterpret_cast<const uint8_t*>(someData_t)
+            - reinterpret_cast<const uint8_t*>(base_ptr()));
         someData.from(table_offset, m_from_ptr, 0, m_buffer);
         return someData;
     }

@@ -1783,6 +1783,10 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
             }
         }
 
+        if (field->isOptional) {
+            ++structMeta->optionalCount;
+        }
+
         if (m_detailed) {
             std::cout << "  STRUCT FIELD: ";
             if (field->isOptional) {

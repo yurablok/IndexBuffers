@@ -254,7 +254,7 @@ struct AST {
         //std::unordered_set<ObjectMeta*> friends;
         std::deque<FieldMeta*> fieldsVec;
         std::unordered_map<std::string, std::unique_ptr<FieldMeta>> fieldsMap;
-        //uint32_t optionalCount = 0;
+        uint32_t optionalCount = 0;
         mutable std::string offsetTypeStr;
         kw offsetType = kw::UInt32;
         kw attribute = kw::UNDEFINED;

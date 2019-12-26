@@ -92,9 +92,9 @@ void testArrays() {
         src.get_f(i) = i;
         src.get_b(i) = i;
         src.get_m(i) = i * (-2);
-        src.get_v(i).set_x(-i);
-        src.get_v(i).set_y(i);
-        src.get_v(i).set_z(i * 2);
+        src.get_v(i).set_x(static_cast<float>(-i));
+        src.get_v(i).set_y(static_cast<float>(i));
+        src.get_v(i).set_z(static_cast<float>(i * 2));
     }
     ASSERT(dst.from(src.to()) == true);
     ASSERT(dst.size() == src.size());
@@ -131,6 +131,7 @@ void testVariant() {
     ASSERT(src.has_color() == true);
     ASSERT(src.has_data() == false);
     ASSERT(src.has_arr() == false);
+    ASSERT(src.variant() == Variant::fields::color);
     ASSERT(dst.from(src.to()) == true);
     ASSERT(dst.size() == src.size());
     ASSERT(dst.get_color() == Color::GREEN);
@@ -150,6 +151,7 @@ void testVariant() {
     ASSERT(src.has_color() == false);
     ASSERT(src.has_data() == true);
     ASSERT(src.has_arr() == false);
+    ASSERT(src.variant() == Variant::fields::data);
     ASSERT(dst.get_data().get_v(2).get_y() == 123.456f);
     ASSERT(dst.size() <= Variant::size_max());
 }
@@ -185,6 +187,7 @@ void testAnotherOne() {
     ASSERT(dst.size_string() == str_test.size());
     ASSERT(dst.get_string(0) == dst.get_string(3));
     ASSERT(dst.get_string<std::string>() == str_test);
+    ASSERT(dst.get_variant().variant() == Variant::fields::arr);
     ASSERT(dst.get_variant().size_arr() == 2);
     ASSERT(dst.get_someData().has_var() == false);
     ASSERT(dst.size() <= AnotherOne::size_max());

@@ -22,11 +22,10 @@ public:
     SomeType(const void* from_ptr, const uint32_t from_size = 0) {
         from(from_ptr, from_size);
     }
-    void create(void* external_ptr, const uint32_t external_size) {
+    void create(std::shared_ptr<std::vector<uint8_t>> buffer) {
         m_table_offset = 0;
-        m_from_ptr = reinterpret_cast<uint8_t*>(external_ptr);
-        m_from_size = external_size;
-        m_buffer.reset();
+        m_from_ptr = nullptr;
+        m_buffer = buffer;
         create(UINT32_MAX);
     }
     void create(const uint32_t reserve = 0) {
@@ -43,7 +42,6 @@ public:
     bool from(void* from_ptr, const uint32_t from_size = 0) {
         m_table_offset = 0;
         m_buffer.reset();
-        //TODO: m_is_read_only
         if (from_ptr == nullptr) {
             return false;
         }
@@ -115,7 +113,7 @@ public:
         def = 1,
         _SPECIAL_ = 2
     };
-    static constexpr const char* to_string(const _ enum_value) {
+    static const char* to_string(const _ enum_value) {
         switch(enum_value) {
         case var: return "var";
         case def: return "def";
@@ -147,7 +145,7 @@ public:
     static constexpr uint32_t count() {
         return 2;
     }
-    static constexpr _ at(const uint32_t index) {
+    static _ at(const uint32_t index) {
         switch (index) {
         case 0: return var;
         case 1: return def;
@@ -158,14 +156,14 @@ public:
     }; // enum fields
 
     uint32_t offset(const fields::_ field) const {
-        static const table o;
+        static const table o{};
         const table* t = get_table();
         switch (field) {
         case fields::var: return t->__var;
         case fields::def: return m_table_offset + static_cast<uint32_t>(
             reinterpret_cast<uintptr_t>(&o.def) - reinterpret_cast<uintptr_t>(&o));
         }
-        return UINT32_MAX;
+        return 0;
     }
     bool has(const fields::_ field) const {
         switch (field) {
@@ -193,7 +191,7 @@ public:
             }
             switch (field) {
             case fields::var:
-                get_table()->__var = m_buffer->size();
+                get_table()->__var = static_cast<uint32_t>(m_buffer->size());
                 m_buffer->resize(m_buffer->size()
                     + sizeof(uint32_t));
                 break;
@@ -292,7 +290,7 @@ enum _ : uint32_t {
     three = 4,
     _SPECIAL_ = 5
 };
-static constexpr const char* to_string(const _ enum_value) {
+static const char* to_string(const _ enum_value) {
     switch(enum_value) {
     case one: return "one";
     case two: return "two";
@@ -326,7 +324,7 @@ static constexpr _ max() {
 static constexpr uint32_t count() {
     return 3;
 }
-static constexpr _ at(const uint32_t index) {
+static _ at(const uint32_t index) {
     switch (index) {
     case 0: return one;
     case 1: return two;
