@@ -200,10 +200,10 @@ void AST::FieldMeta::calcSizeMinMax(uint64_t& min, uint64_t& max,
                     uint64_t minUnused = 0;
                     switch (typeKw) {
                     case kw::Struct:
-                        typePtr->structMeta()->calcSizeMinMax(minUnused, max);
+                        typePtr->structMeta()->calcSizeMinMax(minUnused, max, false);
                         break;
                     case kw::Union:
-                        typePtr->unionMeta()->calcSizeMinMax(minUnused, max);
+                        typePtr->unionMeta()->calcSizeMinMax(minUnused, max, false);
                         break;
                     default:
                         break;
@@ -232,10 +232,10 @@ void AST::FieldMeta::calcSizeMinMax(uint64_t& min, uint64_t& max,
                 uint64_t maxTemp = 0;
                 switch (typeKw) {
                 case kw::Struct:
-                    typePtr->structMeta()->calcSizeMinMax(minTemp, maxTemp);
+                    typePtr->structMeta()->calcSizeMinMax(minTemp, maxTemp, false);
                     break;
                 case kw::Union:
-                    typePtr->unionMeta()->calcSizeMinMax(minTemp, maxTemp);
+                    typePtr->unionMeta()->calcSizeMinMax(minTemp, maxTemp, false);
                     break;
                 default:
                     break;
@@ -263,10 +263,10 @@ void AST::FieldMeta::calcSizeMinMax(uint64_t& min, uint64_t& max,
             else { // 1
                 switch (typeKw) {
                 case kw::Struct:
-                    typePtr->structMeta()->calcSizeMinMax(min, max);
+                    typePtr->structMeta()->calcSizeMinMax(min, max, false);
                     break;
                 case kw::Union:
-                    typePtr->unionMeta()->calcSizeMinMax(min, max);
+                    typePtr->unionMeta()->calcSizeMinMax(min, max, false);
                     break;
                 default:
                     break;
@@ -276,7 +276,7 @@ void AST::FieldMeta::calcSizeMinMax(uint64_t& min, uint64_t& max,
     }
 }
 
-void AST::StructMeta::calcSizeMinMax(uint64_t& min, uint64_t& max) const {
+void AST::StructMeta::calcSizeMinMax(uint64_t& min, uint64_t& max, bool isRoot) const {
     uint8_t offsetSize = 0;
     switch (offsetType) {
     case kw::UInt8: offsetSize = sizeof(uint8_t); break;
@@ -285,12 +285,18 @@ void AST::StructMeta::calcSizeMinMax(uint64_t& min, uint64_t& max) const {
     case kw::UInt64: offsetSize = sizeof(uint64_t); break;
     default: break;
     }
+    if (withHeader && isRoot) {
+        min += 8; // sizeof(header)
+        if (max != UINT64_MAX) {
+            max += 8;
+        }
+    }
     for (const auto& field : fieldsVec) {
         field->calcSizeMinMax(min, max, offsetSize);
     }
 }
 
-void AST::UnionMeta::calcSizeMinMax(uint64_t& min, uint64_t& max) const {
+void AST::UnionMeta::calcSizeMinMax(uint64_t& min, uint64_t& max, bool isRoot) const {
     uint8_t offsetSize = 0;
     switch (offsetType) {
     case kw::UInt8: offsetSize = sizeof(uint8_t); break;
@@ -308,6 +314,12 @@ void AST::UnionMeta::calcSizeMinMax(uint64_t& min, uint64_t& max) const {
         minRes = std::max(minRes, minTemp);
         maxRes = std::max(maxRes, maxTemp);
     }
+    if (withHeader && isRoot) {
+        min += 8; // sizeof(header)
+        if (max != UINT64_MAX) {
+            max += 8;
+        }
+    }
     min += offsetSize * 2; // sizeof(table), table { fields variant; offsetType offset; }
     if (max != UINT64_MAX) {
         if (maxRes == UINT64_MAX) {
@@ -317,4 +329,155 @@ void AST::UnionMeta::calcSizeMinMax(uint64_t& min, uint64_t& max) const {
             max += maxRes;
         }
     }
+}
+
+uint32_t AST::FieldMeta::calcHash() const {
+    uint32_t hash = 0;
+    uint32_t value = 0;
+
+    switch (arrayKw) {
+    case kw::Const: {
+        const auto ptr = arrayPtr->constMeta()->valuePtr;
+        switch (arrayPtr->constMeta()->valueKw) {
+        case kw::Const:
+            hash = MurmurHash3_x86_32(ptr->constMeta()->name.data(),
+                static_cast<uint32_t>(ptr->constMeta()->name.size()), hash);
+            break;
+        case kw::Enum:
+            hash = MurmurHash3_x86_32(&ptr->enumMeta()->valuesVec[arrayIdx].second,
+                sizeof(ptr->enumMeta()->valuesVec[arrayIdx].second), hash);
+            break;
+        case kw::Min:
+            hash = MurmurHash3_x86_32(&ptr->enumMeta()->valuesVec.front().second,
+                sizeof(ptr->enumMeta()->valuesVec.front().second), hash);
+            break;
+        case kw::Max:
+            hash = MurmurHash3_x86_32(&ptr->enumMeta()->valuesVec.back().second,
+                sizeof(ptr->enumMeta()->valuesVec.back().second), hash);
+            break;
+        case kw::Count:
+            value = static_cast<uint32_t>(ptr->enumMeta()->valuesVec.size());
+            hash = MurmurHash3_x86_32(&value, sizeof(value), hash);
+            break;
+        default:
+            break;
+        }
+        break;
+    }
+    case kw::Enum:
+        hash = MurmurHash3_x86_32(&arrayPtr->enumMeta()->valuesVec[arrayIdx].second,
+            sizeof(arrayPtr->enumMeta()->valuesVec[arrayIdx].second), hash);
+        break;
+    case kw::Min:
+        hash = MurmurHash3_x86_32(&arrayPtr->enumMeta()->valuesVec.front().second,
+            sizeof(arrayPtr->enumMeta()->valuesVec.front().second), hash);
+        break;
+    case kw::Max:
+        hash = MurmurHash3_x86_32(&arrayPtr->enumMeta()->valuesVec.back().second,
+            sizeof(arrayPtr->enumMeta()->valuesVec.back().second), hash);
+        break;
+    case kw::Count:
+        value = static_cast<uint32_t>(arrayPtr->enumMeta()->valuesVec.size());
+        hash = MurmurHash3_x86_32(&value, sizeof(value), hash);
+        break;
+    default:
+        hash = MurmurHash3_x86_32(&arraySize, sizeof(arraySize), hash);
+        break;
+    }
+    
+    switch (typeKw) {
+    case kw::Enum:
+        for (const auto& v : typePtr->enumMeta()->valuesVec) {
+            hash = MurmurHash3_x86_32(&v.second, sizeof(v.second), hash);
+        }
+        break;
+    case kw::Struct:
+        value = typePtr->structMeta()->calcHash();
+        hash = MurmurHash3_x86_32(&value, sizeof(value), hash);
+        break;
+    case kw::Union:
+        value = typePtr->unionMeta()->calcHash();
+        hash = MurmurHash3_x86_32(&value, sizeof(value), hash);
+        break;
+    default:
+        hash = MurmurHash3_x86_32(&typeKw, sizeof(typeKw), hash);
+        break;
+    }
+
+    hash = MurmurHash3_x86_32(name.data(), static_cast<uint32_t>(name.size()), hash);
+
+    switch (valueKw) {
+    case kw::Const: {
+        const auto ptr = valuePtr->constMeta()->valuePtr;
+        switch (valuePtr->constMeta()->valueKw) {
+        case kw::Const:
+            hash = MurmurHash3_x86_32(ptr->constMeta()->name.data(),
+                static_cast<uint32_t>(ptr->constMeta()->name.size()), hash);
+            break;
+        case kw::Enum:
+            hash = MurmurHash3_x86_32(&ptr->enumMeta()->valuesVec[valueIdx].second,
+                sizeof(ptr->enumMeta()->valuesVec[valueIdx].second), hash);
+            break;
+        case kw::Min:
+            hash = MurmurHash3_x86_32(&ptr->enumMeta()->valuesVec.front().second,
+                sizeof(ptr->enumMeta()->valuesVec.front().second), hash);
+            break;
+        case kw::Max:
+            hash = MurmurHash3_x86_32(&ptr->enumMeta()->valuesVec.back().second,
+                sizeof(ptr->enumMeta()->valuesVec.back().second), hash);
+            break;
+        case kw::Count:
+            value = static_cast<uint32_t>(ptr->enumMeta()->valuesVec.size());
+            hash = MurmurHash3_x86_32(&value, sizeof(value), hash);
+            break;
+        default:
+            break;
+        }
+        break;
+    }
+    case kw::Enum:
+        hash = MurmurHash3_x86_32(&valuePtr->enumMeta()->valuesVec[valueIdx].second,
+            sizeof(valuePtr->enumMeta()->valuesVec[valueIdx].second), hash);
+        break;
+    case kw::Min:
+        hash = MurmurHash3_x86_32(&valuePtr->enumMeta()->valuesVec.front().second,
+            sizeof(valuePtr->enumMeta()->valuesVec.front().second), hash);
+        break;
+    case kw::Max:
+        hash = MurmurHash3_x86_32(&valuePtr->enumMeta()->valuesVec.back().second,
+            sizeof(valuePtr->enumMeta()->valuesVec.back().second), hash);
+        break;
+    case kw::Count:
+        value = static_cast<uint32_t>(valuePtr->enumMeta()->valuesVec.size());
+        hash = MurmurHash3_x86_32(&value, sizeof(value), hash);
+        break;
+    default:
+        break;
+    }
+
+    hash = MurmurHash3_x86_32(&isOptional, sizeof(bool), hash);
+    hash = MurmurHash3_x86_32(&isBuiltIn, sizeof(bool), hash);
+    hash = MurmurHash3_x86_32(&isArray, sizeof(bool), hash);
+    hash = MurmurHash3_x86_32(&isScalar, sizeof(bool), hash);
+    return hash;
+}
+
+uint32_t AST::StructMeta::calcHash() const {
+    uint32_t hash = 0;
+    uint32_t value = 0;
+    for (const auto& field : fieldsVec) {
+        value = field->calcHash();
+        hash = MurmurHash3_x86_32(&value, sizeof(value), hash);
+    }
+    return hash;
+}
+
+uint32_t AST::UnionMeta::calcHash() const {
+    uint32_t hash = 0;
+    uint32_t value = 0;
+    for (const auto& field : fieldsVec) {
+        value = field->calcHash();
+        hash += value; // maybe wrong
+    }
+    return hash;
 }

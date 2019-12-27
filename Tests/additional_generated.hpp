@@ -23,29 +23,31 @@ public:
         from(from_ptr, from_size);
     }
     void create(std::shared_ptr<std::vector<uint8_t>> buffer) {
-        m_table_offset = 0;
         m_from_ptr = nullptr;
         m_buffer = buffer;
+        m_buffer->clear();
+        m_table_offset = sizeof(header);
         create(UINT32_MAX);
     }
     void create(const uint32_t reserve = 0) {
         if (reserve != UINT32_MAX) {
-            m_table_offset = 0;
             m_from_ptr = nullptr;
             m_buffer.reset();
             m_buffer = std::make_shared<std::vector<uint8_t>>();
             m_buffer->reserve(reserve);
-            m_buffer->resize(sizeof(table));
+            m_buffer->resize(sizeof(header) + sizeof(table));
+            m_table_offset = sizeof(header);
+            new(base_ptr()) header();
         }
         new(get_table()) table();
     }
     bool from(void* from_ptr, const uint32_t from_size = 0) {
-        m_table_offset = 0;
         m_buffer.reset();
         if (from_ptr == nullptr) {
             return false;
         }
         m_from_ptr = reinterpret_cast<uint8_t*>(from_ptr);
+        m_table_offset = sizeof(header);
         if (from_size > 0) {
             if (from_size < size_min()) {
                 return false;
@@ -56,7 +58,14 @@ public:
             m_from_size = from_size;
         }
         else {
-            size(1);
+            size(3);
+        }
+        auto h = reinterpret_cast<const header*>(base_ptr());
+        if (h->___i != 'i' || h->___b != 'b' || h->___s != 's') {
+            return false;
+        }
+        if (h->___sh != 1715699363) {
+            return false;
         }
         return true;
     }
@@ -86,8 +95,11 @@ public:
         if (m_from_ptr) {
             if (calculate > 0) {
                 m_from_size = 0;
-                if (calculate == 1) {
+                if (calculate > 1) {
                     m_from_size += sizeof(table);
+                }
+                if (calculate > 2) {
+                    m_from_size += sizeof(header);
                 }
                 if (has_var()) {
                     m_from_size += size(fields::var);
@@ -101,10 +113,10 @@ public:
         return 0;
     }
     static uint32_t size_min() {
-        return 8;
+        return 16;
     }
     static uint32_t size_max() {
-        return 12;
+        return 20;
     }
     
     struct fields { // enum fields
@@ -245,6 +257,13 @@ public:
     }
 
     #pragma pack(1)
+    struct header {
+        int8_t ___i = 'i';
+        int8_t ___b = 'b';
+        int8_t ___s = 's';
+        uint8_t ___v = (3 << 4) | 0;
+        uint32_t ___sh = 1715699363;
+    };
     struct table {
         uint32_t __var = 0;
         int32_t def = -123;

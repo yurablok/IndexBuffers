@@ -198,20 +198,33 @@ namespace {
         //output << "    " << "    " << "create(UINT32_MAX);" << std::endl;
         //output << "    " << "}" << std::endl;
         output << "    " << "void create(std::shared_ptr<std::vector<uint8_t>> buffer) {" << std::endl;
-        output << "    " << "    " << "m_table_offset = 0;" << std::endl;
         output << "    " << "    " << "m_from_ptr = nullptr;" << std::endl;
         output << "    " << "    " << "m_buffer = buffer;" << std::endl;
+        output << "    " << "    " << "m_buffer->clear();" << std::endl;
+        if (structMeta->withHeader) {
+            output << "    " << "    " << "m_table_offset = sizeof(header);" << std::endl;
+        }
+        else {
+            output << "    " << "    " << "m_table_offset = 0;" << std::endl;
+        }
         output << "    " << "    " << "create(UINT32_MAX);" << std::endl;
         output << "    " << "}" << std::endl;
         output << "    " << "void create(const uint32_t reserve = 0) {" << std::endl;
         output << "    " << "    " << "if (reserve != UINT32_MAX) {" << std::endl;
-        output << "    " << "    " << "    " << "m_table_offset = 0;" << std::endl;
         output << "    " << "    " << "    " << "m_from_ptr = nullptr;" << std::endl;
         output << "    " << "    " << "    " << "m_buffer.reset();" << std::endl;
         output << "    " << "    " << "    " << "m_buffer = std::make_shared<"
             "std::vector<uint8_t>>();" << std::endl;
         output << "    " << "    " << "    " << "m_buffer->reserve(reserve);" << std::endl;
-        output << "    " << "    " << "    " << "m_buffer->resize(sizeof(table));" << std::endl;
+        if (structMeta->withHeader) {
+            output << "    " << "    " << "    " << "m_buffer->resize(sizeof(header) + sizeof(table));" << std::endl;
+            output << "    " << "    " << "    " << "m_table_offset = sizeof(header);" << std::endl;
+            output << "    " << "    " << "    " << "new(base_ptr()) header();" << std::endl;
+        }
+        else {
+            output << "    " << "    " << "    " << "m_buffer->resize(sizeof(table));" << std::endl;
+            output << "    " << "    " << "    " << "m_table_offset = 0;" << std::endl;
+        }
         output << "    " << "    " << "}" << std::endl;
         output << "    " << "    " << "new(get_table()) table();" << std::endl;
         for (const auto& field : structMeta->fieldsVec) {
@@ -228,7 +241,6 @@ namespace {
             const AST& ast, const AST::StructMeta* structMeta) {
         output << "    " << "bool from(void* from_ptr, const "
             << structMeta->offsetTypeStr << " from_size = 0) {" << std::endl;
-        output << "    " << "    " << "m_table_offset = 0;" << std::endl;
         output << "    " << "    " << "m_buffer.reset();" << std::endl;
         //TODO: m_is_read_only
         //output << "    " << "    " << "//TODO: m_is_read_only" << std::endl;
@@ -236,6 +248,12 @@ namespace {
         output << "    " << "    " << "    " << "return false;" << std::endl;
         output << "    " << "    " << "}" << std::endl;
         output << "    " << "    " << "m_from_ptr = reinterpret_cast<uint8_t*>(from_ptr);" << std::endl;
+        if (structMeta->withHeader) {
+            output << "    " << "    " << "m_table_offset = sizeof(header);" << std::endl;
+        }
+        else {
+            output << "    " << "    " << "m_table_offset = 0;" << std::endl;
+        }
         output << "    " << "    " << "if (from_size > 0) {" << std::endl;
         output << "    " << "    " << "    " << "if (from_size < size_min()) {" << std::endl;
         output << "    " << "    " << "    " << "    " << "return false;" << std::endl;
@@ -246,8 +264,17 @@ namespace {
         output << "    " << "    " << "    " << "m_from_size = from_size;" << std::endl;
         output << "    " << "    " << "}" << std::endl;
         output << "    " << "    " << "else {" << std::endl;
-        output << "    " << "    " << "    " << "size(1);" << std::endl;
+        output << "    " << "    " << "    " << "size(3);" << std::endl;
         output << "    " << "    " << "}" << std::endl;
+        if (structMeta->withHeader) {
+            output << "    " << "    " << "auto h = reinterpret_cast<const header*>(base_ptr());" << std::endl;
+            output << "    " << "    " << "if (h->___i != 'i' || h->___b != 'b' || h->___s != 's') {" << std::endl;
+            output << "    " << "    " << "    " << "return false;" << std::endl;
+            output << "    " << "    " << "}" << std::endl;
+            output << "    " << "    " << "if (h->___sh != " << structMeta->schemaHash << ") {" << std::endl;
+            output << "    " << "    " << "    " << "return false;" << std::endl;
+            output << "    " << "    " << "}" << std::endl;
+        }
         output << "    " << "    " << "return true;" << std::endl;
         output << "    " << "}" << std::endl;
         output << "    " << "bool from(const void* from_ptr, const "
@@ -280,23 +307,32 @@ namespace {
     }
     void writeStruct_size(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::StructMeta* structMeta) {
+        // calculate:
+        //  0 - nothing
+        //  1 - data, fixed in struct
+        //  2 - table + data, optional in struct/union
+        //  3 - header + table + data, from root
         output << "    " << structMeta->offsetTypeStr << " size(const uint8_t calculate = 0) const {" << std::endl;
         output << "    " << "    " << "if (m_from_ptr) {" << std::endl;
         output << "    " << "    " << "    " << "if (calculate > 0) {" << std::endl;
         output << "    " << "    " << "    " << "    " << "m_from_size = 0;" << std::endl;
-        output << "    " << "    " << "    " << "    " << "if (calculate == 1) {" << std::endl;
-        output << "    " << "    " << "    " << "    " << "    "
-            << "m_from_size += sizeof(table);" << std::endl;
+        output << "    " << "    " << "    " << "    " << "if (calculate > 1) {" << std::endl;
+        output << "    " << "    " << "    " << "    " << "    " << "m_from_size += sizeof(table);" << std::endl;
         output << "    " << "    " << "    " << "    " << "}" << std::endl;
+        if (structMeta->withHeader) {
+            output << "    " << "    " << "    " << "    " << "if (calculate > 2) {" << std::endl;
+            output << "    " << "    " << "    " << "    " << "    " << "m_from_size += sizeof(header);" << std::endl;
+            output << "    " << "    " << "    " << "    " << "}" << std::endl;
+        }
         for (const auto& field : structMeta->fieldsVec) {
             // 0. fixed scalar               ---
-            // 1. fixed struct               get_x().size(2)
+            // 1. fixed struct               get_x().size(1)
             // 2. fixed array of scalars     ---
-            // 3. fixed array of structs     for size_x(): get_x(i).size(2)
+            // 3. fixed array of structs     for size_x(): get_x(i).size(1)
             // 4. optional scalar            size_x()
-            // 5. optional struct            has_x() get_x().size(1)
+            // 5. optional struct            has_x() get_x().size(2)
             // 6. optional array of scalars  sizeof(offset) + size_x() * sizeof(typeof(x))
-            // 7. optional array of structs  sizeof(offset) + for size_x(): get_x(i).size(1)
+            // 7. optional array of structs  sizeof(offset) + for size_x(): get_x(i).size(2)
             if (field->typeKw == kw::Bytes) {
                 if (!field->isOptional) {
                     continue;
@@ -321,7 +357,7 @@ namespace {
                             << field->name << "(); i < s; ++i) {" << std::endl;
                         output << "    " << "    " << "    " << "    " << "    "
                             << "    " << "m_from_size += get_" << field->name
-                            << "(i).size(1);" << std::endl;
+                            << "(i).size(2);" << std::endl;
                         output << "    " << "    " << "    " << "    " << "    "
                             << "} m_from_size += sizeof(" << structMeta->offsetTypeStr << ");" << std::endl;
                     }
@@ -334,7 +370,7 @@ namespace {
                     else { // 5
                         output << "    " << "    " << "    " << "    " << "    "
                             << "m_from_size += get_" << field->name
-                            << "().size(1);" << std::endl;
+                            << "().size(2);" << std::endl;
                     }
                 }
                 output << "    " << "    " << "    " << "    "
@@ -350,7 +386,7 @@ namespace {
                             << field->name << "(); i < s; ++i) {" << std::endl;
                         output << "    " << "    " << "    " << "    "
                             << "    " << "m_from_size += get_" << field->name
-                            << "(i).size(2);" << std::endl;
+                            << "(i).size(1);" << std::endl;
                         output << "    " << "    " << "    " << "    " << "}" << std::endl;
                     }
                 }
@@ -360,7 +396,7 @@ namespace {
                     else { // 1
                         output << "    " << "    " << "    " << "    "
                             << "m_from_size += get_" << field->name
-                            << "().size(2);" << std::endl;
+                            << "().size(1);" << std::endl;
                     }
                 }
             }
@@ -903,6 +939,15 @@ namespace {
     void writeStruct_table(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::StructMeta* structMeta) {
         output << "    " << "#pragma pack(1)" << std::endl;
+        if (structMeta->withHeader) {
+            output << "    " << "struct header {" << std::endl;
+            output << "    " << "    " << "int8_t ___i = 'i';" << std::endl;
+            output << "    " << "    " << "int8_t ___b = 'b';" << std::endl;
+            output << "    " << "    " << "int8_t ___s = 's';" << std::endl;
+            output << "    " << "    " << "uint8_t ___v = (3 << 4) | 0;" << std::endl;
+            output << "    " << "    " << "uint32_t ___sh = " << structMeta->schemaHash << ";" << std::endl;
+            output << "    " << "};" << std::endl;
+        }
         output << "    " << "struct table {" << std::endl;
         for (const auto& field : structMeta->fieldsVec) {
             output << "    " << "    ";
@@ -1137,20 +1182,33 @@ namespace {
         //output << "    " << "    " << "create(UINT32_MAX);" << std::endl;
         //output << "    " << "}" << std::endl;
         output << "    " << "void create(std::shared_ptr<std::vector<uint8_t>> buffer) {" << std::endl;
-        output << "    " << "    " << "m_table_offset = 0;" << std::endl;
         output << "    " << "    " << "m_from_ptr = nullptr;" << std::endl;
         output << "    " << "    " << "m_buffer = buffer;" << std::endl;
+        output << "    " << "    " << "m_buffer->clear();" << std::endl;
+        if (unionMeta->withHeader) {
+            output << "    " << "    " << "m_table_offset = sizeof(header);" << std::endl;
+        }
+        else {
+            output << "    " << "    " << "m_table_offset = 0;" << std::endl;
+        }
         output << "    " << "    " << "create(UINT32_MAX);" << std::endl;
         output << "    " << "}" << std::endl;
         output << "    " << "void create(const uint32_t reserve = 0) {" << std::endl;
         output << "    " << "    " << "if (reserve != UINT32_MAX) {" << std::endl;
-        output << "    " << "    " << "    " << "m_table_offset = 0;" << std::endl;
         output << "    " << "    " << "    " << "m_from_ptr = nullptr;" << std::endl;
         output << "    " << "    " << "    " << "m_buffer.reset();" << std::endl;
         output << "    " << "    " << "    " << "m_buffer = std::make_shared<"
             "std::vector<uint8_t>>();" << std::endl;
         output << "    " << "    " << "    " << "m_buffer->reserve(reserve);" << std::endl;
-        output << "    " << "    " << "    " << "m_buffer->resize(sizeof(table));" << std::endl;
+        if (unionMeta->withHeader) {
+            output << "    " << "    " << "    " << "m_buffer->resize(sizeof(header) + sizeof(table));" << std::endl;
+            output << "    " << "    " << "    " << "m_table_offset = sizeof(header);" << std::endl;
+            output << "    " << "    " << "    " << "new(base_ptr()) header();" << std::endl;
+        }
+        else {
+            output << "    " << "    " << "    " << "m_buffer->resize(sizeof(table));" << std::endl;
+            output << "    " << "    " << "    " << "m_table_offset = 0;" << std::endl;
+        }
         output << "    " << "    " << "}" << std::endl;
         output << "    " << "    " << "new(get_table()) table();" << std::endl;
         output << "    " << "}" << std::endl;
@@ -1159,7 +1217,6 @@ namespace {
             const AST& ast, const AST::UnionMeta* unionMeta) {
         output << "    " << "bool from(void* from_ptr, const "
             << unionMeta->offsetTypeStr << " from_size = 0) {" << std::endl;
-        output << "    " << "    " << "m_table_offset = 0;" << std::endl;
         output << "    " << "    " << "m_buffer.reset();" << std::endl;
         //TODO: m_is_read_only
         //output << "    " << "    " << "//TODO: m_is_read_only" << std::endl;
@@ -1167,6 +1224,12 @@ namespace {
         output << "    " << "    " << "    " << "return false;" << std::endl;
         output << "    " << "    " << "}" << std::endl;
         output << "    " << "    " << "m_from_ptr = reinterpret_cast<uint8_t*>(from_ptr);" << std::endl;
+        if (unionMeta->withHeader) {
+            output << "    " << "    " << "m_table_offset = sizeof(header);" << std::endl;
+        }
+        else {
+            output << "    " << "    " << "m_table_offset = 0;" << std::endl;
+        }
         output << "    " << "    " << "if (from_size > 0) {" << std::endl;
         output << "    " << "    " << "    " << "if (from_size < size_min()) {" << std::endl;
         output << "    " << "    " << "    " << "    " << "return false;" << std::endl;
@@ -1177,8 +1240,17 @@ namespace {
         output << "    " << "    " << "    " << "m_from_size = from_size;" << std::endl;
         output << "    " << "    " << "}" << std::endl;
         output << "    " << "    " << "else {" << std::endl;
-        output << "    " << "    " << "    " << "size(1);" << std::endl;
+        output << "    " << "    " << "    " << "size(3);" << std::endl;
         output << "    " << "    " << "}" << std::endl;
+        if (unionMeta->withHeader) {
+            output << "    " << "    " << "auto h = reinterpret_cast<const header*>(base_ptr());" << std::endl;
+            output << "    " << "    " << "if (h->___i != 'i' || h->___b != 'b' || h->___s != 's') {" << std::endl;
+            output << "    " << "    " << "    " << "return false;" << std::endl;
+            output << "    " << "    " << "}" << std::endl;
+            output << "    " << "    " << "if (h->___sh != " << unionMeta->schemaHash << ") {" << std::endl;
+            output << "    " << "    " << "    " << "return false;" << std::endl;
+            output << "    " << "    " << "}" << std::endl;
+        }
         output << "    " << "    " << "return true;" << std::endl;
         output << "    " << "}" << std::endl;
         output << "    " << "bool from(const void* from_ptr, const "
@@ -1211,13 +1283,23 @@ namespace {
     }
     void writeUnion_size(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::UnionMeta* unionMeta) {
+        // calculate:
+        //  0 - nothing
+        //  1 - data, fixed in struct
+        //  2 - table + data, optional in struct/union
+        //  3 - header + table + data, from root
         output << "    " << unionMeta->offsetTypeStr << " size(const uint8_t calculate = 0) const {" << std::endl;
         output << "    " << "    " << "if (m_from_ptr) {" << std::endl;
         output << "    " << "    " << "    " << "if (calculate > 0) {" << std::endl;
         output << "    " << "    " << "    " << "    " << "m_from_size = 0;" << std::endl;
-        output << "    " << "    " << "    " << "    " << "if (calculate == 1) {" << std::endl;
+        output << "    " << "    " << "    " << "    " << "if (calculate > 1) {" << std::endl;
         output << "    " << "    " << "    " << "    " << "    " << "m_from_size += sizeof(table);" << std::endl;
         output << "    " << "    " << "    " << "    " << "}" << std::endl;
+        if (unionMeta->withHeader) {
+            output << "    " << "    " << "    " << "    " << "if (calculate > 2) {" << std::endl;
+            output << "    " << "    " << "    " << "    " << "    " << "m_from_size += sizeof(header);" << std::endl;
+            output << "    " << "    " << "    " << "    " << "}" << std::endl;
+        }
         output << "    " << "    " << "    " << "    " << "switch (get_table()->variant) {" << std::endl;
         for (const auto& field : unionMeta->fieldsVec) {
             output << "    " << "    " << "    " << "    "
@@ -1244,7 +1326,7 @@ namespace {
                         << "(); i < s; ++i) {" << std::endl;
                     output << "    " << "    " << "    " << "    " << "    "
                         << "    " << "m_from_size += get_" << field->name
-                        << "(i).size(1);" << std::endl;
+                        << "(i).size(2);" << std::endl;
                     output << "    " << "    " << "    " << "    " << "    "
                         << "} m_from_size += sizeof(" << unionMeta->offsetTypeStr << ");" << std::endl;
                 }
@@ -1257,7 +1339,7 @@ namespace {
                 else { // 5
                     output << "    " << "    " << "    " << "    " << "    "
                         << "m_from_size += get_" << field->name
-                        << "().size(1);" << std::endl;
+                        << "().size(2);" << std::endl;
                 }
             }
             output << "    " << "    " << "    " << "    " << "    "
@@ -1716,6 +1798,15 @@ namespace {
     void writeUnion_table(WritingMeta& writingMeta, std::ostream& output,
             const AST& ast, const AST::UnionMeta* unionMeta) {
         output << "    " << "#pragma pack(1)" << std::endl;
+        if (unionMeta->withHeader) {
+            output << "    " << "struct header {" << std::endl;
+            output << "    " << "    " << "int8_t ___i = 'i';" << std::endl;
+            output << "    " << "    " << "int8_t ___b = 'b';" << std::endl;
+            output << "    " << "    " << "int8_t ___s = 's';" << std::endl;
+            output << "    " << "    " << "uint8_t ___v = (3 << 4) | 0;" << std::endl;
+            output << "    " << "    " << "uint32_t ___sh = " << unionMeta->schemaHash << ";" << std::endl;
+            output << "    " << "};" << std::endl;
+        }
         output << "    " << "struct table {" << std::endl;
         output << "    " << "    " << "fields::_ variant = fields::_SPECIAL_;" << std::endl;
         output << "    " << "    " << unionMeta->offsetTypeStr << " offset = 0;" << std::endl;

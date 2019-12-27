@@ -227,6 +227,7 @@ struct AST {
     };
     struct FieldMeta {
         void calcSizeMinMax(uint64_t& min, uint64_t& max, const uint8_t offsetSize) const;
+        uint32_t calcHash() const;
         const ObjectMeta* arrayPtr = nullptr;
         uint64_t arraySize = 0; // 0 - not fixed, >0 - fixed
         uint32_t arrayIdx = 0;
@@ -249,24 +250,30 @@ struct AST {
         bool isScalar = false;
     };
     struct StructMeta {
-        void calcSizeMinMax(uint64_t& min, uint64_t& max) const;
+        void calcSizeMinMax(uint64_t& min, uint64_t& max, bool isRoot = true) const;
+        uint32_t calcHash() const;
         std::string name;
         //std::unordered_set<ObjectMeta*> friends;
         std::deque<FieldMeta*> fieldsVec;
         std::unordered_map<std::string, std::unique_ptr<FieldMeta>> fieldsMap;
-        uint32_t optionalCount = 0;
         mutable std::string offsetTypeStr;
+        uint32_t schemaHash = 0;
+        uint32_t optionalCount = 0;
         kw offsetType = kw::UInt32;
-        kw attribute = kw::UNDEFINED;
+        kw hashType = kw::UNDEFINED;
+        bool withHeader = true;
     };
     struct UnionMeta {
-        void calcSizeMinMax(uint64_t& min, uint64_t& max) const;
+        void calcSizeMinMax(uint64_t& min, uint64_t& max, bool isRoot = true) const;
+        uint32_t calcHash() const;
         std::string name;
         std::deque<FieldMeta*> fieldsVec;
         std::unordered_map<std::string, std::unique_ptr<FieldMeta>> fieldsMap;
         mutable std::string offsetTypeStr;
+        uint32_t schemaHash = 0;
         kw offsetType = kw::UInt32;
-        kw attribute = kw::UNDEFINED;
+        kw hashType = kw::UNDEFINED;
+        bool withHeader = true;
     };
 
     struct TreeNode;

@@ -1419,8 +1419,10 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
             switch (attribute) {
             case kw::MurMur3:
             case kw::CRC32:
+                structMeta->hashType = attribute;
+                break;
             case kw::NoHeader:
-                structMeta->attribute = attribute;
+                structMeta->withHeader = false;
                 break;
             case kw::UInt8:
             case kw::UInt16:
@@ -1453,8 +1455,8 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
             std::cout << ns << "::";
         }
         std::cout << clr::blue << structMeta->name << clr::reset;
-        if (structMeta->attribute != kw::UNDEFINED) {
-            std::cout << " " << kw_to_keyword[static_cast<uint8_t>(structMeta->attribute)];
+        if (structMeta->hashType != kw::UNDEFINED) {
+            std::cout << " " << kw_to_keyword[static_cast<uint8_t>(structMeta->hashType)];
         }
         std::cout << std::endl;
     }
@@ -1915,6 +1917,7 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
         m_parsingErrorsCount += errorsCount;
         return false;
     }
+    structMeta->schemaHash = structMeta->calcHash();
     //std::sort(structMeta->fieldsVec.begin(), structMeta->fieldsVec.end(),
     //    [](const AST::FieldMeta* l, const AST::FieldMeta* r) {
     //        return l->isOptional < r->isOptional;
@@ -1967,8 +1970,10 @@ bool INBCompiler::parseUnion(AST::ParsingMeta& meta, tokens_it& it) {
             switch (attribute) {
             case kw::MurMur3:
             case kw::CRC32:
+                unionMeta->hashType = attribute;
+                break;
             case kw::NoHeader:
-                unionMeta->attribute = attribute;
+                unionMeta->withHeader = false;
                 break;
             case kw::UInt8:
             case kw::UInt16:
@@ -1999,6 +2004,10 @@ bool INBCompiler::parseUnion(AST::ParsingMeta& meta, tokens_it& it) {
         std::cout << "UNION: ";
         for (const auto& ns : meta.namespace_) {
             std::cout << ns << "::";
+        }
+        std::cout << clr::blue << unionMeta->name << clr::reset;
+        if (unionMeta->hashType != kw::UNDEFINED) {
+            std::cout << " " << kw_to_keyword[static_cast<uint8_t>(unionMeta->hashType)];
         }
         std::cout << clr::blue << unionMeta->name << clr::reset << std::endl;
     }
@@ -2256,6 +2265,7 @@ bool INBCompiler::parseUnion(AST::ParsingMeta& meta, tokens_it& it) {
         m_parsingErrorsCount += errorsCount;
         return false;
     }
+    unionMeta->schemaHash = unionMeta->calcHash();
     std::unique_ptr<AST::ObjectMeta> objectMeta = std::make_unique<AST::ObjectMeta>(
         meta.path, itAtUnionName->line, itAtUnionName->pos);
     objectMeta->putUnionMeta(std::move(unionMeta));

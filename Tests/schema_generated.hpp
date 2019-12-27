@@ -76,29 +76,31 @@ public:
         from(from_ptr, from_size);
     }
     void create(std::shared_ptr<std::vector<uint8_t>> buffer) {
-        m_table_offset = 0;
         m_from_ptr = nullptr;
         m_buffer = buffer;
+        m_buffer->clear();
+        m_table_offset = sizeof(header);
         create(UINT32_MAX);
     }
     void create(const uint32_t reserve = 0) {
         if (reserve != UINT32_MAX) {
-            m_table_offset = 0;
             m_from_ptr = nullptr;
             m_buffer.reset();
             m_buffer = std::make_shared<std::vector<uint8_t>>();
             m_buffer->reserve(reserve);
-            m_buffer->resize(sizeof(table));
+            m_buffer->resize(sizeof(header) + sizeof(table));
+            m_table_offset = sizeof(header);
+            new(base_ptr()) header();
         }
         new(get_table()) table();
     }
     bool from(void* from_ptr, const uint8_t from_size = 0) {
-        m_table_offset = 0;
         m_buffer.reset();
         if (from_ptr == nullptr) {
             return false;
         }
         m_from_ptr = reinterpret_cast<uint8_t*>(from_ptr);
+        m_table_offset = sizeof(header);
         if (from_size > 0) {
             if (from_size < size_min()) {
                 return false;
@@ -109,7 +111,14 @@ public:
             m_from_size = from_size;
         }
         else {
-            size(1);
+            size(3);
+        }
+        auto h = reinterpret_cast<const header*>(base_ptr());
+        if (h->___i != 'i' || h->___b != 'b' || h->___s != 's') {
+            return false;
+        }
+        if (h->___sh != 3859240464) {
+            return false;
         }
         return true;
     }
@@ -139,8 +148,11 @@ public:
         if (m_from_ptr) {
             if (calculate > 0) {
                 m_from_size = 0;
-                if (calculate == 1) {
+                if (calculate > 1) {
                     m_from_size += sizeof(table);
+                }
+                if (calculate > 2) {
+                    m_from_size += sizeof(header);
                 }
                 if (has_c()) {
                     m_from_size += size(fields::c);
@@ -157,10 +169,10 @@ public:
         return 0;
     }
     static uint8_t size_min() {
-        return 17;
+        return 25;
     }
     static uint8_t size_max() {
-        return 29;
+        return 37;
     }
     
     struct fields { // enum fields
@@ -397,6 +409,13 @@ public:
     }
 
     #pragma pack(1)
+    struct header {
+        int8_t ___i = 'i';
+        int8_t ___b = 'b';
+        int8_t ___s = 's';
+        uint8_t ___v = (3 << 4) | 0;
+        uint32_t ___sh = 3859240464;
+    };
     struct table {
         int8_t a;
         uint16_t b;
@@ -449,29 +468,30 @@ public:
         from(from_ptr, from_size);
     }
     void create(std::shared_ptr<std::vector<uint8_t>> buffer) {
-        m_table_offset = 0;
         m_from_ptr = nullptr;
         m_buffer = buffer;
+        m_buffer->clear();
+        m_table_offset = 0;
         create(UINT32_MAX);
     }
     void create(const uint32_t reserve = 0) {
         if (reserve != UINT32_MAX) {
-            m_table_offset = 0;
             m_from_ptr = nullptr;
             m_buffer.reset();
             m_buffer = std::make_shared<std::vector<uint8_t>>();
             m_buffer->reserve(reserve);
             m_buffer->resize(sizeof(table));
+            m_table_offset = 0;
         }
         new(get_table()) table();
     }
     bool from(void* from_ptr, const uint32_t from_size = 0) {
-        m_table_offset = 0;
         m_buffer.reset();
         if (from_ptr == nullptr) {
             return false;
         }
         m_from_ptr = reinterpret_cast<uint8_t*>(from_ptr);
+        m_table_offset = 0;
         if (from_size > 0) {
             if (from_size < size_min()) {
                 return false;
@@ -482,7 +502,7 @@ public:
             m_from_size = from_size;
         }
         else {
-            size(1);
+            size(3);
         }
         return true;
     }
@@ -512,7 +532,7 @@ public:
         if (m_from_ptr) {
             if (calculate > 0) {
                 m_from_size = 0;
-                if (calculate == 1) {
+                if (calculate > 1) {
                     m_from_size += sizeof(table);
                 }
             }
@@ -735,29 +755,31 @@ public:
         from(from_ptr, from_size);
     }
     void create(std::shared_ptr<std::vector<uint8_t>> buffer) {
-        m_table_offset = 0;
         m_from_ptr = nullptr;
         m_buffer = buffer;
+        m_buffer->clear();
+        m_table_offset = sizeof(header);
         create(UINT32_MAX);
     }
     void create(const uint32_t reserve = 0) {
         if (reserve != UINT32_MAX) {
-            m_table_offset = 0;
             m_from_ptr = nullptr;
             m_buffer.reset();
             m_buffer = std::make_shared<std::vector<uint8_t>>();
             m_buffer->reserve(reserve);
-            m_buffer->resize(sizeof(table));
+            m_buffer->resize(sizeof(header) + sizeof(table));
+            m_table_offset = sizeof(header);
+            new(base_ptr()) header();
         }
         new(get_table()) table();
     }
     bool from(void* from_ptr, const uint16_t from_size = 0) {
-        m_table_offset = 0;
         m_buffer.reset();
         if (from_ptr == nullptr) {
             return false;
         }
         m_from_ptr = reinterpret_cast<uint8_t*>(from_ptr);
+        m_table_offset = sizeof(header);
         if (from_size > 0) {
             if (from_size < size_min()) {
                 return false;
@@ -768,7 +790,14 @@ public:
             m_from_size = from_size;
         }
         else {
-            size(1);
+            size(3);
+        }
+        auto h = reinterpret_cast<const header*>(base_ptr());
+        if (h->___i != 'i' || h->___b != 'b' || h->___s != 's') {
+            return false;
+        }
+        if (h->___sh != 735787942) {
+            return false;
         }
         return true;
     }
@@ -798,8 +827,11 @@ public:
         if (m_from_ptr) {
             if (calculate > 0) {
                 m_from_size = 0;
-                if (calculate == 1) {
+                if (calculate > 1) {
                     m_from_size += sizeof(table);
+                }
+                if (calculate > 2) {
+                    m_from_size += sizeof(header);
                 }
                 if (has_f()) {
                     m_from_size += size_f() * sizeof(uint8_t) + sizeof(uint16_t);
@@ -809,7 +841,7 @@ public:
                 }
                 if (has_v()) {
                     for (uint16_t i = 0, s = size_v(); i < s; ++i) {
-                        m_from_size += get_v(i).size(1);
+                        m_from_size += get_v(i).size(2);
                     } m_from_size += sizeof(uint16_t);
                 }
             }
@@ -821,7 +853,7 @@ public:
         return 0;
     }
     static uint16_t size_min() {
-        return 22;
+        return 30;
     }
     static uint16_t size_max() {
         return 65535;
@@ -1041,6 +1073,13 @@ public:
     }
 
     #pragma pack(1)
+    struct header {
+        int8_t ___i = 'i';
+        int8_t ___b = 'b';
+        int8_t ___s = 's';
+        uint8_t ___v = (3 << 4) | 0;
+        uint32_t ___sh = 735787942;
+    };
     struct table {
         uint16_t __f = 0;
         uint8_t b[ExtNS::IntNS::fixedSize];
@@ -1091,29 +1130,31 @@ public:
         from(from_ptr, from_size);
     }
     void create(std::shared_ptr<std::vector<uint8_t>> buffer) {
-        m_table_offset = 0;
         m_from_ptr = nullptr;
         m_buffer = buffer;
+        m_buffer->clear();
+        m_table_offset = sizeof(header);
         create(UINT32_MAX);
     }
     void create(const uint32_t reserve = 0) {
         if (reserve != UINT32_MAX) {
-            m_table_offset = 0;
             m_from_ptr = nullptr;
             m_buffer.reset();
             m_buffer = std::make_shared<std::vector<uint8_t>>();
             m_buffer->reserve(reserve);
-            m_buffer->resize(sizeof(table));
+            m_buffer->resize(sizeof(header) + sizeof(table));
+            m_table_offset = sizeof(header);
+            new(base_ptr()) header();
         }
         new(get_table()) table();
     }
     bool from(void* from_ptr, const uint8_t from_size = 0) {
-        m_table_offset = 0;
         m_buffer.reset();
         if (from_ptr == nullptr) {
             return false;
         }
         m_from_ptr = reinterpret_cast<uint8_t*>(from_ptr);
+        m_table_offset = sizeof(header);
         if (from_size > 0) {
             if (from_size < size_min()) {
                 return false;
@@ -1124,7 +1165,14 @@ public:
             m_from_size = from_size;
         }
         else {
-            size(1);
+            size(3);
+        }
+        auto h = reinterpret_cast<const header*>(base_ptr());
+        if (h->___i != 'i' || h->___b != 'b' || h->___s != 's') {
+            return false;
+        }
+        if (h->___sh != 606269861) {
+            return false;
         }
         return true;
     }
@@ -1154,15 +1202,18 @@ public:
         if (m_from_ptr) {
             if (calculate > 0) {
                 m_from_size = 0;
-                if (calculate == 1) {
+                if (calculate > 1) {
                     m_from_size += sizeof(table);
+                }
+                if (calculate > 2) {
+                    m_from_size += sizeof(header);
                 }
                 switch (get_table()->variant) {
                 case fields::color:
                     m_from_size += size(fields::color);
                     break;
                 case fields::data:
-                    m_from_size += get_data().size(1);
+                    m_from_size += get_data().size(2);
                     break;
                 case fields::arr:
                     m_from_size += size_arr() * sizeof(int64_t) + sizeof(uint8_t);
@@ -1178,7 +1229,7 @@ public:
         return 0;
     }
     static uint8_t size_min() {
-        return 2;
+        return 10;
     }
     static uint8_t size_max() {
         return 255;
@@ -1354,6 +1405,13 @@ public:
     }
 
     #pragma pack(1)
+    struct header {
+        int8_t ___i = 'i';
+        int8_t ___b = 'b';
+        int8_t ___s = 's';
+        uint8_t ___v = (3 << 4) | 0;
+        uint32_t ___sh = 606269861;
+    };
     struct table {
         fields::_ variant = fields::_SPECIAL_;
         uint8_t offset = 0;
@@ -1402,30 +1460,32 @@ public:
         from(from_ptr, from_size);
     }
     void create(std::shared_ptr<std::vector<uint8_t>> buffer) {
-        m_table_offset = 0;
         m_from_ptr = nullptr;
         m_buffer = buffer;
+        m_buffer->clear();
+        m_table_offset = sizeof(header);
         create(UINT32_MAX);
     }
     void create(const uint32_t reserve = 0) {
         if (reserve != UINT32_MAX) {
-            m_table_offset = 0;
             m_from_ptr = nullptr;
             m_buffer.reset();
             m_buffer = std::make_shared<std::vector<uint8_t>>();
             m_buffer->reserve(reserve);
-            m_buffer->resize(sizeof(table));
+            m_buffer->resize(sizeof(header) + sizeof(table));
+            m_table_offset = sizeof(header);
+            new(base_ptr()) header();
         }
         new(get_table()) table();
         get_someData().create(UINT32_MAX);
     }
     bool from(void* from_ptr, const uint32_t from_size = 0) {
-        m_table_offset = 0;
         m_buffer.reset();
         if (from_ptr == nullptr) {
             return false;
         }
         m_from_ptr = reinterpret_cast<uint8_t*>(from_ptr);
+        m_table_offset = sizeof(header);
         if (from_size > 0) {
             if (from_size < size_min()) {
                 return false;
@@ -1436,7 +1496,14 @@ public:
             m_from_size = from_size;
         }
         else {
-            size(1);
+            size(3);
+        }
+        auto h = reinterpret_cast<const header*>(base_ptr());
+        if (h->___i != 'i' || h->___b != 'b' || h->___s != 's') {
+            return false;
+        }
+        if (h->___sh != 4000935586) {
+            return false;
         }
         return true;
     }
@@ -1466,14 +1533,17 @@ public:
         if (m_from_ptr) {
             if (calculate > 0) {
                 m_from_size = 0;
-                if (calculate == 1) {
+                if (calculate > 1) {
                     m_from_size += sizeof(table);
+                }
+                if (calculate > 2) {
+                    m_from_size += sizeof(header);
                 }
                 m_from_size += size_string() + sizeof(uint32_t);
                 if (has_variant()) {
-                    m_from_size += get_variant().size(1);
+                    m_from_size += get_variant().size(2);
                 }
-                m_from_size += get_someData().size(2);
+                m_from_size += get_someData().size(1);
             }
             return m_from_size;
         }
@@ -1483,7 +1553,7 @@ public:
         return 0;
     }
     static uint32_t size_min() {
-        return 20;
+        return 28;
     }
     static uint32_t size_max() {
         return 4294967295;
@@ -1731,6 +1801,13 @@ public:
     }
 
     #pragma pack(1)
+    struct header {
+        int8_t ___i = 'i';
+        int8_t ___b = 'b';
+        int8_t ___s = 's';
+        uint8_t ___v = (3 << 4) | 0;
+        uint32_t ___sh = 4000935586;
+    };
     struct table {
         uint32_t __string = 0;
         uint32_t __variant = 0;
