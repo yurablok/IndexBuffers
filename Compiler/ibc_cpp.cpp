@@ -208,7 +208,7 @@ namespace {
         else {
             output << "    " << "    " << "m_table_offset = 0;" << std::endl;
         }
-        output << "    " << "    " << "create(UINT32_MAX);" << std::endl;
+        output << "    " << "    " << "create(0);" << std::endl;
         output << "    " << "}" << std::endl;
         output << "    " << "void create(const uint32_t reserve = 0) {" << std::endl;
         output << "    " << "    " << "if (reserve != UINT32_MAX) {" << std::endl;
@@ -1192,7 +1192,7 @@ namespace {
         else {
             output << "    " << "    " << "m_table_offset = 0;" << std::endl;
         }
-        output << "    " << "    " << "create(UINT32_MAX);" << std::endl;
+        output << "    " << "    " << "create(0);" << std::endl;
         output << "    " << "}" << std::endl;
         output << "    " << "void create(const uint32_t reserve = 0) {" << std::endl;
         output << "    " << "    " << "if (reserve != UINT32_MAX) {" << std::endl;

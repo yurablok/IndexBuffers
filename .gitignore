@@ -13,3 +13,8 @@
 *.o
 *Makefile
 /.qmake.stash
+/Benchmarks/protobuf/protobuf-*
+/Benchmarks/protobuf/protoc-*
+/Benchmarks/flatbuffers/flatc-*
+/Benchmarks/capnproto/capnproto-*
+/Benchmarks/x64

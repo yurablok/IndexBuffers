@@ -99,3 +99,8 @@ TODO: сравнение с
 [Protocol Buffers](https://github.com/protocolbuffers/protobuf),
 [FlatBuffers](https://github.com/google/flatbuffers),
 [Cap'n Proto](https://github.com/capnproto/capnproto)
+
+protobuf:     13693 ms
+flatbuffers:  5105 ms
+capnproto:    8345 ms
+IndexBuffers: 7109 ms

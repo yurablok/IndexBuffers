@@ -68,7 +68,7 @@ bool utf::utf8CharToUcs2Char(const char* utf8Tok, wchar_t* ucs2Char, uint32_t* u
         *utf8TokLen = 4;
         return false;                        //Character exceeds the UCS-2 range (UCS-4 would be necessary)
     }
-    else if ((0xF8 == utf8TokUs[0] & 0xFC))
+    else if (0xF8 == (utf8TokUs[0] & 0xFC))
     {
         //Tokensize: 5 bytes
         *utf8TokLen = 5;

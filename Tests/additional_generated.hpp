@@ -27,7 +27,7 @@ public:
         m_buffer = buffer;
         m_buffer->clear();
         m_table_offset = sizeof(header);
-        create(UINT32_MAX);
+        create(0);
     }
     void create(const uint32_t reserve = 0) {
         if (reserve != UINT32_MAX) {

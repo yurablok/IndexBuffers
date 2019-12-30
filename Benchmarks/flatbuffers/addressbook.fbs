@@ -1,0 +1,43 @@
+namespace fbs;
+
+enum PhoneNumberType: uint8 {
+    mobile,
+    home,
+    work
+}
+table PhoneNumber {
+    number: string;
+    type: PhoneNumberType;
+}
+
+table unemployed {
+    unused: uint8;
+}
+table employer {
+    text: string;
+}
+table school {
+    text: string;
+}
+table selfEmployed {
+    unused: uint8;
+}
+union Employment {
+    unemployed,
+    employer,
+    school,
+    selfEmployed
+}
+
+table Person {
+    id: uint32;
+    name: string;
+    email: string;
+    phones: [PhoneNumber];
+    employment: Employment;
+}
+
+table AddressBook {
+    people: [Person];
+}
+root_type AddressBook;

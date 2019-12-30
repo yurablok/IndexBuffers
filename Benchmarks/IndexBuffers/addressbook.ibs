@@ -1,0 +1,30 @@
+namespace ibs
+
+enum PhoneNumberType: uint8 {
+    mobile
+    home
+    work
+}
+struct PhoneNumber: uint16 {
+    bytes number
+    PhoneNumberType type
+}
+
+union Employment: uint16 {
+    uint8 unemployed
+    bytes employer
+    bytes school
+    uint8 selfEmployed
+}
+
+struct Person: uint16 {
+    uint32 id
+    bytes name
+    bytes email
+    PhoneNumber phones[]
+    Employment employment
+}
+
+struct AddressBook: uint16 no_header {
+    Person people[]
+}

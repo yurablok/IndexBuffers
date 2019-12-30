@@ -17,6 +17,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Other", "Other", "{E9C703D7
 		WhitePaper.h = WhitePaper.h
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Benchmarks", "Benchmarks\Benchmarks.vcxproj", "{1A4C0855-7124-4D63-A922-2382B8C32BD9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -41,6 +43,14 @@ Global
 		{73729311-E3BD-4300-9D07-5F4DCC716F6D}.Release|x64.Build.0 = Release|x64
 		{73729311-E3BD-4300-9D07-5F4DCC716F6D}.Release|x86.ActiveCfg = Release|Win32
 		{73729311-E3BD-4300-9D07-5F4DCC716F6D}.Release|x86.Build.0 = Release|Win32
+		{1A4C0855-7124-4D63-A922-2382B8C32BD9}.Debug|x64.ActiveCfg = Debug|x64
+		{1A4C0855-7124-4D63-A922-2382B8C32BD9}.Debug|x64.Build.0 = Debug|x64
+		{1A4C0855-7124-4D63-A922-2382B8C32BD9}.Debug|x86.ActiveCfg = Debug|Win32
+		{1A4C0855-7124-4D63-A922-2382B8C32BD9}.Debug|x86.Build.0 = Debug|Win32
+		{1A4C0855-7124-4D63-A922-2382B8C32BD9}.Release|x64.ActiveCfg = Release|x64
+		{1A4C0855-7124-4D63-A922-2382B8C32BD9}.Release|x64.Build.0 = Release|x64
+		{1A4C0855-7124-4D63-A922-2382B8C32BD9}.Release|x86.ActiveCfg = Release|Win32
+		{1A4C0855-7124-4D63-A922-2382B8C32BD9}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
