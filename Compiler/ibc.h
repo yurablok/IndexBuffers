@@ -16,7 +16,8 @@ private:
     AST m_ast;
 
     std::string getRelativeFilePath(const std::string& filePath);
-    bool loadFileToLines(const std::string& filename, lines_t& lines);
+    bool loadFileToLines(const std::string& filename, lines_t& lines,
+        bool isFromUtf8);
     void tokenize(const lines_t& lines, tokens_t& tokens) const;
     bool parse(AST::ParsingMeta& meta);
     // signed dec

@@ -19,7 +19,11 @@ void AST::insertObject(const AST::ParsingMeta& meta,
     AST::TreeNode* node = &objectsTree;
     for (const auto& ns : meta.namespace_) {
         TreeNode* parent = node;
-        node = &node->namespaces[ns];
+        auto& ref = node->namespaces[ns];
+        if (!ref) {
+            ref = std::make_unique<TreeNode>();
+        }
+        node = ref.get();
         node->parent = parent;
     }
     object->parent = node;
@@ -54,40 +58,13 @@ AST::ObjectMeta* AST::findObject(
         if (nodeIt == node->namespaces.end()) {
             return nullptr;
         }
-        node = &nodeIt->second;
+        node = nodeIt->second.get();
     }
     auto objectIt = node->objects.find(name);
     if (objectIt == node->objects.end()) {
         return nullptr;
     }
     return objectIt->second.get();
-}
-
-void AST::calcSchemaHash() {
-    // uint32_t mm3 = 0;
-    // for (const auto &ns : m_namespaces) {
-    //     mm3 = MurmurHash3_x86_32(ns.data(), ns.size(), mm3);
-    // }
-    // //for (const auto &ct : m_constants) {
-    // //}
-    // for (const auto &en : m_enums) {
-    //     mm3 = MurmurHash3_x86_32(en.first.data(), en.first.size(), mm3);
-    //     for (const auto &f : en.second) {
-    //         mm3 = MurmurHash3_x86_32(f.first.data(), f.first.size(), mm3);
-    //         mm3 = MurmurHash3_x86_32(&f.second, sizeof(f.second), mm3);
-    //     }
-    // }
-    // for (const auto &st : m_structs) {
-    //     mm3 = MurmurHash3_x86_32(st.name.data(), st.name.size(), mm3);
-    //     for (const auto &f : st.fields) {
-    //         mm3 = MurmurHash3_x86_32(f.name.data(), f.name.size(), mm3);
-    //         mm3 = MurmurHash3_x86_32(f.type.data(), f.type.size(), mm3);
-    //         mm3 = MurmurHash3_x86_32(&f.isArray, sizeof(f.isArray), mm3);
-    //         mm3 = MurmurHash3_x86_32(&f.isBuiltIn, sizeof(f.isBuiltIn), mm3);
-    //         mm3 = MurmurHash3_x86_32(&f.isOptional, sizeof(f.isOptional), mm3);
-    //     }
-    // }
-    // m_schemaHash = mm3; //(mm3 << 16) ^ (mm3 & 0xffff);
 }
 
 void AST::FieldMeta::calcSizeMinMax(uint64_t& min, uint64_t& max,

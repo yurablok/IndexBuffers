@@ -139,7 +139,7 @@ struct SomeType: mmh3 {
     int32 def = -1'2'3
 }
 
-include "debug/debug.ibs"
+include "дебаг/debug.ibs"
 
 enum TestEnum2 {
     one = 0

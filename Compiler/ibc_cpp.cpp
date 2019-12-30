@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ibc.h"
+#include "Utf8Ucs2Converter.h"
 #include "version.h"
 
 namespace {
@@ -1916,7 +1917,11 @@ void INBCompiler::genCPP(const AST& ast, const std::string& outputSuffix) {
         outputPath.resize(outputPath.rfind('.'));
         outputPath += outputSuffix;
         outputPath += ".hpp";
+#ifdef _WIN32
+        std::ofstream output(utf::utf8ToUcs2(outputPath));
+#else
         std::ofstream output(outputPath);
+#endif
         if (output.is_open()) {
             std::cout << "OUTPUT: " << outputPath << std::endl;
         }

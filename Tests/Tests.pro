@@ -1,12 +1,11 @@
 TEMPLATE = app
+CONFIG -= qt app_bundle
 CONFIG += console c++11
-CONFIG -= app_bundle
-CONFIG -= qt
 
 LIBS += -lpthread
 
-SOURCES += main.cpp
+SOURCES += \
+    main.cpp
 
-HEADERS += schema_generated.h
-
-INCLUDEPATH += ../../libs/googletest-release-1.8.0/
+HEADERS += \
+    schema_generated.hpp

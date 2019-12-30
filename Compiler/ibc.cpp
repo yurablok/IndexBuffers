@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "ibc.h"
+#include "Utf8Ucs2Converter.h"
 
 namespace {
     void splitStr(const std::string& source, std::deque<std::string>& splitted,
@@ -32,16 +33,37 @@ void INBCompiler::read(const std::string& input, const bool detailed) {
     m_detailed = detailed;
 
     AST::ParsingMeta parsingMeta;
-    if (!loadFileToLines(input, parsingMeta.lines)) {
-        printErrorWrongPath(input);
+    //parsingMeta.path = getRelativeFilePath(input);
+    size_t slashPos = input.rfind('\\');
+    if (slashPos == std::string::npos) {
+        slashPos = input.rfind('/');
+    }
+    if (slashPos != std::string::npos) {
+        parsingMeta.path = input.substr(slashPos + 1);
+    }
+    else {
+        parsingMeta.path = input;
+    }
+    std::filesystem::path absolutePath = std::filesystem::absolute(input);
+    std::filesystem::path workingDir = absolutePath.parent_path();
+#ifdef _WIN32
+    _wchdir(workingDir.c_str());
+#else
+    chdir(workingDir.u8string().c_str());
+#endif
+    if (!loadFileToLines(parsingMeta.path, parsingMeta.lines, false)) {
+        printErrorWrongPath(parsingMeta.path);
+        exit(0);
+    }
+#ifdef _WIN32
+    const std::wstring filename = absolutePath.filename().wstring();
+    parsingMeta.path = utf::ucs2ToUtf8(filename);
+#endif
+    if (parsingMeta.path.empty()) {
+        printErrorWrongPath(parsingMeta.path);
         exit(0);
     }
     tokenize(parsingMeta.lines, parsingMeta.tokens);
-    parsingMeta.path = getRelativeFilePath(input);
-    if (parsingMeta.path.empty()) {
-        printErrorWrongPath(input);
-        exit(0);
-    }
     m_processedFilesPaths.insert(parsingMeta.path);
     m_ast.filesMeta.emplace_back();
     m_ast.filesMeta.back().name = parsingMeta.path;
@@ -59,7 +81,6 @@ void INBCompiler::read(const std::string& input, const bool detailed) {
         std::cout << '.' << clr::reset << std::endl;
         exit(0);
     }
-    m_ast.calcSchemaHash();
 }
 
 void INBCompiler::write(const std::string& outputSuffix, const Language& lang) {
@@ -75,23 +96,18 @@ void INBCompiler::write(const std::string& outputSuffix, const Language& lang) {
     }
 }
 
-void INBCompiler::setStopOnFirstError(const bool stopOnFirstError)
-{
+void INBCompiler::setStopOnFirstError(const bool stopOnFirstError) {
     m_stopOnFirstError = stopOnFirstError;
 }
 
 // Returns empty string if filePath not exist, or relative path
 std::string INBCompiler::getRelativeFilePath(const std::string& filePath) {
-#ifdef IBC_USE_STD_FILESYSTEM
     std::filesystem::path p = filePath;
     if (!std::filesystem::is_regular_file(p)) {
         return std::string();
     }
     std::error_code ec;
     return std::filesystem::relative(p, ec).string();
-#else
-    return path;
-#endif // IBC_USE_STD_FILESYSTEM
 }
 
 bool INBCompiler::isNameCorrect(const std::string& name) const {
@@ -302,7 +318,7 @@ bool INBCompiler::findValue(const AST::ParsingMeta& meta, tokens_it& it,
     for (uint32_t i = 0; i < 100; ++i) {
         auto namespaceIt = node->namespaces.find(it->str);
         if (namespaceIt != node->namespaces.end()) {
-            node = &namespaceIt->second;
+            node = namespaceIt->second.get();
             if (next(meta, it, true, true) != next_r('y', 'y')) {
                 return false;
             }
@@ -327,7 +343,7 @@ bool INBCompiler::findValue(const AST::ParsingMeta& meta, tokens_it& it,
                 if (nodeIt == node->namespaces.end()) {
                     break;
                 }
-                node = &nodeIt->second;
+                node = nodeIt->second.get();
             }
         }
         const auto itAtObject = it;

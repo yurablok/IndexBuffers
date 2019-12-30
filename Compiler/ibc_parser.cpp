@@ -1,22 +1,58 @@
 #include "stdafx.h"
 #include "ibc.h"
+#include "Utf8Ucs2Converter.h"
 
 namespace {
     //constexpr std::string_view strEndl("\n"); //C++17
     static const std::string strEndl("\n");
 }
 
-bool INBCompiler::loadFileToLines(const std::string& filename, lines_t& lines) {
+bool INBCompiler::loadFileToLines(const std::string& filename, lines_t& lines,
+    bool isFromUtf8) {
     lines.clear();
-    std::ifstream file(filename);
+#ifdef _WIN32
+    std::ifstream file;
+    if (isFromUtf8) {
+        file.open(utf::utf8ToUcs2(filename), std::ios::binary);
+    }
+    else {
+        file.open(filename, std::ios::binary);
+    }
+#else
+    std::ifstream file(filename, std::ios::binary);
+#endif
     if (!file.is_open()) {
         std::cout << clr::red << "Error: Cannot open " << filename << clr::reset << std::endl;
         return false;
     }
+    //std::string buffer;
+    //while (!file.eof()) {
+    //    std::getline(file, buffer);
+    //    lines.push_back(std::move(buffer));
+    //}
+    file.seekg(0, std::ios::end);
     std::string buffer;
-    while (!file.eof()) {
-        std::getline(file, buffer);
-        lines.push_back(std::move(buffer));
+    buffer.resize(file.tellg());
+    file.seekg(0, std::ios::beg);
+    file.read(buffer.data(), buffer.size());
+    lines.emplace_back();
+    char prev = 0;
+    for (const char c : buffer) { // uint32_t i = 0; i < buffer.size(); ++i) {
+        switch (c) {
+        case '\n':
+            if (prev == '\r') { // \r\n
+                break;
+            }
+            lines.emplace_back();
+            break;
+        case '\r':
+            lines.emplace_back();
+            break;
+        default:
+            lines.back().push_back(c);
+            break;
+        }
+        prev = c;
     }
     return true;
 }
@@ -791,7 +827,7 @@ bool INBCompiler::parseValue(AST::ParsingMeta& meta, tokens_it& it,
             case 10:
                 try {
                     const auto temp = std::stoul(valueStr);
-                    static_assert(sizeof(temp) == sizeof(uint32_t));
+                    static_assert(sizeof(temp) >= sizeof(uint32_t));
                 }
                 catch (...) {
                     printErrorCustom(meta, itBegin, "The value " + valueStr
@@ -878,7 +914,14 @@ bool INBCompiler::parseInclude(AST::ParsingMeta& meta, tokens_it& it) {
     if (next(meta, it, true, true) != next_r('y', 'y')) { // <include> <"> <?>
         return false;
     }
-    std::string includePath = getRelativeFilePath(it->str);
+    //std::string includePath = getRelativeFilePath(it->str);
+    std::string includePath = it->str;
+    for (char& c : includePath) {
+        if (c != '\\') {
+            continue;
+        }
+        c = '/';
+    }
     const tokens_it itPath = it;
     if (next(meta, it, true, true) != next_r('y', 'y')) { // <include> <"> <filepath> <?>
         return false;
@@ -904,7 +947,7 @@ bool INBCompiler::parseInclude(AST::ParsingMeta& meta, tokens_it& it) {
             std::cout << "INCLUDE: " << clr::blue << includePath << clr::reset << std::endl;
         }
         AST::ParsingMeta includeMeta;
-        if (!loadFileToLines(includePath, includeMeta.lines)) {
+        if (!loadFileToLines(includePath, includeMeta.lines, true)) {
             printErrorWrongPath(includePath);
             return false;
         }

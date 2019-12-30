@@ -361,7 +361,7 @@ struct AST {
     };
 
     struct TreeNode {
-        std::unordered_map<std::string, TreeNode> namespaces;
+        std::unordered_map<std::string, std::unique_ptr<TreeNode>> namespaces;
         std::unordered_map<std::string, std::unique_ptr<ObjectMeta>> objects;
         const TreeNode* parent = nullptr;
     };
@@ -377,7 +377,6 @@ struct AST {
     };
     std::deque<FileMeta> filesMeta;
 
-    void calcSchemaHash();
     static bool isNamespacesEqual(const std::deque<std::string>& l,
         const std::deque<std::string>& r);
     void insertObject(const ParsingMeta& meta,

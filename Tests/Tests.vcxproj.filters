@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="additional_generated.hpp" />
+    <ClInclude Include="debug_generated.hpp" />
+    <ClInclude Include="schema_generated.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="additional.ibs" />
+    <None Include="schema.ibs" />
+    <None Include="debug\debug.ibs">
+      <Filter>debug</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="debug">
+      <UniqueIdentifier>{63993f52-8491-4408-8413-b656e3316f58}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

@@ -9,7 +9,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
-#include "debug_generated.hpp"
+#include "debug/debug_generated.hpp"
 
 namespace AdditionalNS {
 

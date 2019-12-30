@@ -1,5 +1,6 @@
-﻿/.vs
+/.vs
 *.vcxproj.user
+*.pro.user
 /Compiler/Debug
 /Compiler/Release
 /Compiler/x64
@@ -9,3 +10,6 @@
 /Debug
 /Release
 /x64
+*.o
+*Makefile
+/.qmake.stash
