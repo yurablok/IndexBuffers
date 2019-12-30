@@ -1,0 +1,193 @@
+//include
+//include token
+//include "token
+//include "../Tests/schema_nonexists.ibs"
+//include "../Tests/schema.ibs"
+//namespace struct.AdditionalNS // error
+namespace AdditionalNS
+//namespace AnotherNS // error
+//namespace AnotherNS // error
+
+// errors
+//const someType c123 = 0 // error
+//const int32   int32 = 0 // error
+//const int32   err00 : 0 // error
+//const int16   err01 // error
+
+// integer dec
+//const int32 int00 = - // error
+//const int32 int01 = + // error
+//const int32 int02 = -- // error
+//const int32 int03 = ++ // error
+//const int32 int04 = ' // error
+//const int32 int05 = '' // error
+//const int32 int06 = 1' // error
+//const int32 int07 = 1''0 // error
+//const int32 int0 = 0
+//const int32 int1 = 100
+//const int32 int2 = -100
+//const int32 int3 = +100
+//const int32 int4 = 132'20'0
+//const int32 int5 = -1'0'0
+//const int32 int6 = +1'0'0
+
+// unsigned integer dec
+//const uint32 dec00 = -123 // error
+//const uint32 dec0 = 0'0'1
+//const uint32 dec1 = 123
+
+// unsigned integer bin
+//const uint32 bin00 = b0101 // error
+//const uint32 bin01 = 0bb0101 // error
+//const uint32 bin02 = 0b0b0101 // error
+//const uint32 bin02 = 0b010201 // error
+//const uint32 bin0 = 0b01010110
+//const uint32 bin1 = 0b01'010'110
+
+// unsigned integer hex
+//const uint32 hex00 = x0abc // error
+//const uint32 hex01 = 0xx0abc // error
+//const uint32 hex02 = 0x0x0abc // arror
+//const uint32 hex03 = 0x0abs // error
+//const uint32 hex04 = abcdef // error
+//const uint32 hex05 = 0123ef // error
+//const uint32 hex06 = 1x1 // error
+//const uint32 hex07 = 000x1 // error
+//const uint32 hex0 = 0x0'abcd'ef31
+//const uint32 hex1 = 0x0A'BCDE'F4
+
+// float
+//const float32 flt00 = - // error
+//const float32 flt01 = -- // error
+//const float32 flt02 = -.- // error
+//const float32 flt03 = -1- // error
+//const float32 flt0 = 1
+//const float32 flt1 = -1
+//const float32 flt2 = +1
+//const float32 flt3 = -12'34.56'78
+//const float64 flt4 = 3.141592653589793238462643383279502884197169399375105820974944592307816406286
+
+// float sci
+//const float32 flt10 = e // error
+//const float32 flt11 = 1e // error
+//const float32 flt12 = 1.0e // error
+//const float32 flt13 = 0.1e10 // error
+//const float32 flt14 = 0.1e+ // error
+//const float32 flt5 = -1.6e-35
+//const float32 flt6 = 1.6e+35
+
+// limits
+//const int8   lim50 = -128
+//const int8   lim51 = 127
+//const int8   lim52 = -129 // error
+//const int8   lim53 = 1'2'8 // error
+//const uint8  lim54 = 255
+//const uint8  lim55 = 256 // error
+//const uint8  lim56 = 0xFF
+//const uint8  lim57 = 0x100 // error
+//const uint8  lim58 = 0b0101'0101
+//const uint8  lim59 = 0b0101'01010 // error
+//const int16  lim60 = -32768
+//const int16  lim61 = 32767
+//const int16  lim62 = -32769 // error
+//const int16  lim63 = 32768 // error
+//const uint16 lim64 = 65535
+//const uint16 lim64 = 65536 // error
+//const uint16 lim65 = 0xFFFF
+//const uint16 lim65 = 0x10000 // error
+//const uint16 lim66 = 0b0101'0101'0101'0101
+//const uint16 lim67 = 0b0101'0101'0101'01010 // error
+//const int32  lim68 = -2147483648
+//const int32  lim69 = 2147483647
+//const int32  lim70 = -2147483649 // error
+//const int32  lim71 = 2147483648 // error
+//const uint32 lim72 = 4294967295
+//const uint32 lim73 = 4294967296 // error
+//const uint32 lim74 = 0xFFFF'FFFF
+//const uint32 lim75 = 0x10000'0000 // error
+//const uint32 lim76 = 0b0101'0101'0101'0101'0101'0101'0101'0101
+//const uint32 lim77 = 0b0101'0101'0101'0101'0101'0101'0101'01010 // error
+//const int64  lim78 = -9223372036854775808
+//const int64  lim79 = 9223372036854775807
+//const int64  lim80 = -9223372036854775809 // error
+//const int64  lim81 = 9223372036854775808 // error
+//const uint64 lim82 = 18446744073709551615
+//const uint64 lim83 = 18446744073709551616 // error
+//const uint64 lim84 = 0xFFFF'FFFF'FFFF'FFFF
+//const uint64 lim85 = 0x10000'0000'0000'0000 // error
+//const uint64 lim86 = 0b0101'0101'0101'0101'0101'0101'0101'0101'0101'0101'0101'0101'0101'0101'0101'0101
+//const uint64 lim87 = 0b0101'0101'0101'0101'0101'0101'0101'0101'0101'0101'0101'0101'0101'0101'0101'01010 // error
+
+//enum TestEnum: uint8 {
+//{ // error
+//    one
+//    one // error
+//    + // error
+//    two + // error
+//    three = // error
+//    four = 4t // error
+//    five = 5
+//    six = 4 // error
+//    seven = 256 // error 
+//    eight // error - 256 + 1
+//}
+//enum TestEnum { // error
+//}
+
+struct SomeType: mmh3 {
+    optional uint32 var
+    int32 def = -1'2'3
+}
+
+include "дебаг/debug.ibs"
+
+enum TestEnum2 {
+    one = 0
+    two = 2
+    three = 4
+}
+
+//struct TestStruct0 //TODO: forward declaration means recursion
+
+//enum DebugEnum {
+//    value1
+//    value2
+//}
+struct TestStruct0: mmh3 {
+    //name // error
+    //int32 // error
+    //int32 f00
+    //int32 f00 // error
+    //optional f01 // error
+    //optional int32 f02
+    //optional int32 f03 = 0 // error, optional with default
+    //int32 f000 = DebugNS::DebugEnum // error
+    //int32 f001 = DebugNS::debugConst
+    //int32 f002 = DebugNS::debugConst.count // error
+    //int32 f003 = DebugNS::DebugEnum+value2 // error
+    //int32 f004 = DebugNS::DebugEnum::value3 // error
+    //int32 f005 = DebugNS::DebugEnum::value2
+    //int32 f006 = DebugNS::DebugEnum::value2+ // error
+    //DebugNS: err // error
+    //DebugNS:: // error
+    //WrongNS::Type f04 // error, unknown namespace
+    //DebugNS::Type f05 // error, unknown type
+    //DebugNS::DebugEnum // error
+    //DebugNS::DebugEnum f06
+    //DebugNS::DebugEnum f007 = 111 // error, scalar with custom type
+    //DebugNS::DebugEnum f008 = DebugNS::debugConst // error, const with enum
+    //DebugNS::DebugEnum f009 = AdditionalNS::TestEnum2::three // error, different enum type
+    //DebugNS::DebugEnum f010 = DebugNS::DebugEnum::value2
+    //DebugNS::DebugEnum f07[]
+    //int32 f08[0] // error
+    //int32 f09[debugConst1] // error
+    //int32 f10[DebugNS::debugConst]
+    //int32 f11[DebugNS::debugNegConst] // error
+    //int32 f12[DebugNS::DebugEnum.min]
+    //int32 f13[DebugNS::DebugEnum.max]
+    //int32 f14[DebugNS::DebugEnum.count]
+    //int8 f15 = DebugNS::debugNegConst // error, int32 into int8
+    //int64 f16 = DebugNS::debugConst // warning, uint32 into int64
+    //int32 f17 = DebugNS::DebugEnum.count
+    //DebugNS::DebugStruct f18 = DebugNS::debugConst // error
+}

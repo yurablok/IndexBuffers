@@ -5,7 +5,7 @@
  * distribute this software, either in source code form or as a compiled
  * binary, for any purpose, commercial or non-commercial, and by any
  * means.
- * 
+ *
  * In jurisdictions that recognize copyright laws, the author or authors
  * of this software dedicate any and all copyright interest in the
  * software to the public domain. We make this dedication for the benefit
@@ -13,7 +13,7 @@
  * successors. We intend this dedication to be an overt act of
  * relinquishment in perpetuity of all present and future rights to this
  * software under copyright law.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
@@ -26,26 +26,32 @@
  * - http://unlicense.org/
  * - https://github.com/yurablok/colored-cout
  ********************************************************************************/
-#ifndef COLORED_COUT_H
-#define COLORED_COUT_H
+#pragma once
 
-#include "stdafx.h"
+#include <iostream>
+
+#ifdef _WIN32
+#   define WIN32_LEAN_AND_MEAN // Exclude rarely-used stuff from Windows headers
+#   define NOMINMAX // Fixes the conflicts with STL
+#   include <Windows.h>
+#   include <wincon.h>
+#endif
 
 namespace clr
 {
-// usage:
-// std::cout << clr::red     << "red "
-//           << clr::yellow  << "yellow "
-//           << clr::green   << "green "
-//           << clr::cyan    << "cyan "
-//           << clr::blue    << "blue "
-//           << clr::magenta << "magenta\n"
-//           << clr::default_;
+    // usage:
+    // std::cout << clr::red     << "red "
+    //           << clr::yellow  << "yellow "
+    //           << clr::green   << "green "
+    //           << clr::cyan    << "cyan "
+    //           << clr::blue    << "blue "
+    //           << clr::magenta << "magenta\n"
+    //           << clr::reset;
 
 #ifdef _WIN32
     enum color
     {
-        default_  = 0
+        reset     = 0
         , blue    = FOREGROUND_BLUE | FOREGROUND_INTENSITY
         , green   = FOREGROUND_GREEN | FOREGROUND_INTENSITY
         , cyan    = FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_INTENSITY
@@ -57,7 +63,7 @@ namespace clr
 #elif __unix__
     enum color
     {
-        default_
+        reset
         , red
         , green
         , yellow
@@ -73,11 +79,11 @@ namespace clr
 #ifdef _WIN32
         static WORD old_color_attrs = -1;
 #elif __unix__
-        static const char* GetAnsiColorCode(const color &clr)
+        static const char* GetAnsiColorCode(const color& clr)
         {
             switch (clr)
             {
-            case clr::default_: return nullptr;
+            case clr::reset:    return nullptr;
             case clr::red:      return "1";
             case clr::green:    return "2";
             case clr::yellow:   return "3";
@@ -93,7 +99,7 @@ namespace clr
 }
 
 template <class type>
-type& operator<<(type& _Ostr, const clr::color &color)
+type& operator<<(type& _Ostr, const clr::color& color)
 {
 #ifdef _WIN32
     if (clr::internal::old_color_attrs == static_cast<WORD>(-1))
@@ -104,7 +110,7 @@ type& operator<<(type& _Ostr, const clr::color &color)
         clr::internal::old_color_attrs = buffer_info.wAttributes;
     }
 #endif
-    if (color == clr::default_)
+    if (color == clr::reset)
     {
 #ifdef _WIN32
         _Ostr.flush();
@@ -125,5 +131,3 @@ type& operator<<(type& _Ostr, const clr::color &color)
     }
     return _Ostr;
 }
-
-#endif // COLORED_COUT_H
