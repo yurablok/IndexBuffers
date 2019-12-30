@@ -1,0 +1,57 @@
+.
+├── Benchmarks.vcxproj
+├── Benchmarks.vcxproj.filters
+├── Benchmarks.vcxproj.user
+├── IndexBuffers
+│   ├── addressbook.ibs
+│   └── addressbook_generated.hpp
+├── capnproto
+│   ├── addressbook.capnp
+│   ├── addressbook.capnp.c++
+│   ├── addressbook.capnp.h
+│   ├── capnproto-c++-0.7.0
+|   |   └── .....
+│   └── capnproto-tools-win32-0.7.0
+│       ├── capnp-json.lib
+│       ├── capnp-rpc.lib
+│       ├── capnp.exe
+│       ├── capnp.lib
+│       ├── capnpc-c++.exe
+│       ├── capnpc-capnp.exe
+│       ├── capnpc.lib
+│       ├── capnpd.lib
+│       ├── kj-async.lib
+│       ├── kj-gzip.lib
+│       ├── kj-http.lib
+│       ├── kj-test.lib
+│       ├── kj.lib
+│       └── kjd.lib
+├── flatbuffers
+│   ├── addressbook.fbs
+│   ├── addressbook_generated.h
+│   └── flatc-1.11.0
+│       ├── flatbuffers
+|       |   └── .....
+│       └── flatc.exe
+├── main.cpp
+└── protobuf
+    ├── addressbook.pb.cc
+    ├── addressbook.pb.h
+    ├── addressbook.proto
+    ├── protobuf-3.11.2
+    |   └── .....
+    └── protoc-3.11.2
+        ├── bin
+        │   ├── gmock.lib
+        │   ├── gmock_main.lib
+        │   ├── libprotobuf-lite.lib
+        │   ├── libprotobuf-lited.lib
+        │   ├── libprotobuf.lib
+        │   ├── libprotobufd.lib
+        │   ├── libprotoc.lib
+        │   ├── libprotocd.lib
+        │   └── protoc.exe
+        └── include
+            └── google
+                └── protobuf
+                    └── .....
