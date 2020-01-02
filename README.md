@@ -105,10 +105,12 @@ struct AnotherOne {
 
 |                             Tool                                |  Time, ms |  %              |     Size of packet, B | Size of code, KB |
 | :-------------------------------------------------------------: | --------: | :-------------: | --------------------: | ---------------: |
-| [Protocol Buffers](https://github.com/protocolbuffers/protobuf) |     13693 | 268             |                   106 |  external + 92.9 |
-|   [FlatBuffers](https://github.com/google/flatbuffers)          |      5105 | 100             |                   296 |  external + 19.8 |
-|   [Cap'n Proto](https://github.com/capnproto/capnproto)         |      8345 | 163             |                   151 |  external + 50.7 |
-|    IndexBuffers                                                 |      7109 | 139<sub>1</sub> | 91(uint8) 114(uint16) | 45.7<sub>2</sub> |
+| [Protocol Buffers](https://github.com/protocolbuffers/protobuf) |     13693 | 276             |                   106 |  external + 92.9 |
+|   [FlatBuffers](https://github.com/google/flatbuffers)          |      4965 | 100             |                   296 |  external + 19.8 |
+|   [Cap'n Proto](https://github.com/capnproto/capnproto)         |      8390 | 169             |                   151 |  external + 50.7 |
+|    IndexBuffers                                                 |      7587 | 153             |           (uint8) 104 |             45.7 |
+|    IndexBuffers                                                 |      7122 | 143             |          (uint16) 129 |             45.7 |
+|    IndexBuffers                                                 |      6681 | 135<sub>1</sub> |          (uint32) 188 | 45.7<sub>2</sub> |
 
 1. To make IndexBuffers more faster, need to work out the issue of aligning the fields.
 2. Unlike alternative tools, the generated IndexBuffers code has no dependencies  
@@ -222,10 +224,12 @@ struct AnotherOne {
 
 |                           Инструмент                            | Время, мс |  %              |      Размер пакета, б |  Размер кода, Кб |
 | :-------------------------------------------------------------: | --------: | :-------------: | --------------------: | ---------------: |
-| [Protocol Buffers](https://github.com/protocolbuffers/protobuf) |     13693 | 268             |                   106 |   внешний + 92.9 |
-|   [FlatBuffers](https://github.com/google/flatbuffers)          |      5105 | 100             |                   296 |   внешний + 19.8 |
-|   [Cap'n Proto](https://github.com/capnproto/capnproto)         |      8345 | 163             |                   151 |   внешний + 50.7 |
-|    IndexBuffers                                                 |      7109 | 139<sub>1</sub> | 91(uint8) 114(uint16) | 45.7<sub>2</sub> |
+| [Protocol Buffers](https://github.com/protocolbuffers/protobuf) |     13693 | 276             |                   106 |   внешний + 92.9 |
+|   [FlatBuffers](https://github.com/google/flatbuffers)          |      4965 | 100             |                   296 |   внешний + 19.8 |
+|   [Cap'n Proto](https://github.com/capnproto/capnproto)         |      8390 | 169             |                   151 |   внешний + 50.7 |
+|    IndexBuffers                                                 |      7587 | 153             |           (uint8) 104 |             45.7 |
+|    IndexBuffers                                                 |      7122 | 143             |          (uint16) 129 |             45.7 |
+|    IndexBuffers                                                 |      6681 | 135<sub>1</sub> |          (uint32) 188 | 45.7<sub>2</sub> |
 
 1. Чтобы сделать IndexBuffers ещё быстрее, нужно проработать вопрос  
    выравнивания полей.

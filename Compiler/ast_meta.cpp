@@ -361,6 +361,7 @@ uint32_t AST::FieldMeta::calcHash() const {
         hash = MurmurHash3_x86_32(&arraySize, sizeof(arraySize), hash);
         break;
     }
+    hash = MurmurHash3_x86_32(&arraySizeKw, sizeof(arraySizeKw), hash);
     
     switch (typeKw) {
     case kw::Enum:

@@ -296,8 +296,9 @@ std::chrono::milliseconds run_IndexBuffers(const uint32_t reps) {
             bob.get_employment().set_unemployed(0);
         }
         // if offset type is:
-        //  uint8 - 91
-        //  uint16 - 114
+        //  uint8 - 104
+        //  uint16 - 129
+        //  uint32 - 188
         const uint32_t size = addressBookSrc.size();
         ibs::AddressBook addressBookDst;
         {

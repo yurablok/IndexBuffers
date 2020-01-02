@@ -1,6 +1,6 @@
 namespace ibs
 
-enum PhoneNumberType: uint8 {
+enum PhoneNumberType: uint16 {
     mobile
     home
     work
