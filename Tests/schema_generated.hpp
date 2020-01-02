@@ -834,7 +834,7 @@ public:
                     m_from_size += sizeof(header);
                 }
                 if (has_f()) {
-                    m_from_size += size_f() * sizeof(uint8_t) + sizeof(uint16_t);
+                    m_from_size += size_f() * sizeof(uint8_t);
                 }
                 if (has_m()) {
                     m_from_size += size_m() * sizeof(int16_t) + sizeof(uint16_t);
@@ -842,7 +842,7 @@ public:
                 if (has_v()) {
                     for (uint16_t i = 0, s = size_v(); i < s; ++i) {
                         m_from_size += get_v(i).size(2);
-                    } m_from_size += sizeof(uint16_t);
+                    } m_from_size += sizeof(uint8_t);
                 }
             }
             return m_from_size;
@@ -945,7 +945,7 @@ public:
         case fields::m: return reinterpret_cast<uint8_t*>(
             base_ptr()) + offset(field) + sizeof(uint16_t);
         case fields::v: return reinterpret_cast<uint8_t*>(
-            base_ptr()) + offset(field) + sizeof(uint16_t);
+            base_ptr()) + offset(field) + sizeof(uint8_t);
         }
         return nullptr;
     }
@@ -961,7 +961,7 @@ public:
             case fields::f:
                 get_table()->__f = static_cast<uint16_t>(m_buffer->size());
                 m_buffer->resize(m_buffer->size()
-                    + sizeof(uint8_t) * 16 + sizeof(uint16_t));
+                    + sizeof(uint8_t) * 16);
                 break;
             case fields::m:
                 get_table()->__m = static_cast<uint16_t>(m_buffer->size());
@@ -973,7 +973,7 @@ public:
             case fields::v:
                 get_table()->__v = static_cast<uint16_t>(m_buffer->size());
                 m_buffer->resize(m_buffer->size()
-                    + sizeof(ExtNS::IntNS::Vec3f::table) * size + sizeof(uint16_t));
+                    + sizeof(ExtNS::IntNS::Vec3f::table) * size + sizeof(uint8_t));
                 *reinterpret_cast<uint16_t*>((reinterpret_cast<uint8_t*>(
                     base_ptr()) + get_table()->__v)) = size;
                 for (uint16_t i = 0; i < size; ++i) {
@@ -1001,7 +1001,7 @@ public:
         case fields::m:
             return *(reinterpret_cast<const uint16_t*>(get(field)) - 1);
         case fields::v:
-            return *(reinterpret_cast<const uint16_t*>(get(field)) - 1);
+            return *(reinterpret_cast<const uint8_t*>(get(field)) - 1);
         default:
             return 0;
         }

@@ -1734,15 +1734,7 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
                 if (next(meta, it, true, true) != next_r('y', 'y')) { // <[> <?>
                     continue;
                 }
-                if (it->str == "]") {
-                    if (next(meta, it, false) == next_r('y', 'y')) {
-                        printErrorWrongToken(meta, it, "end of line");
-                        skipLine(meta, it);
-                        continue;
-                    }
-                    field->isOptional = true;
-                }
-                else {
+                if (it->str != "]") { // <[> <?>
                     const tokens_it itAtValue = it;
                     const AST::ObjectMeta* arrayPtr = nullptr;
                     kw arrayKw = kw::UNDEFINED;
@@ -1806,13 +1798,46 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
                     }
                     //field->isArrayFixedSize = true;
                     //field->isByOffset = false;
-                    if (it->str != "]") {
+                    if (it->str != "]") { // <[> <...> <]>
                         printErrorWrongToken(meta, it, "]");
                         skipLine(meta, it);
                         continue;
                     }
                     if (field->typeKw == kw::Bytes) {
                         field->isOptional = false;
+                    }
+                }
+                else { // <[> <]>
+                    field->isOptional = true;
+                }
+                if (next(meta, it, false) == next_r('y', 'y')) { // <]> <?>
+                    if (it->str != ":") { // <]> <:>
+                        printErrorWrongToken(meta, it, ":");
+                        skipLine(meta, it);
+                        continue;
+                    }
+                    if (next(meta, it, true, true) != next_r('y', 'y')) { // <]> <:> <?>
+                        continue;
+                    }
+                    const kw arraySizeKw = findKeyword(it->str);
+                    switch (arraySizeKw) {
+                    case kw::UInt8:
+                    case kw::UInt16:
+                    case kw::UInt32:
+                    case kw::UInt64:
+                        if (checkScalarTypeMatchingRange(
+                                arraySizeKw, structMeta->offsetType) != 'y') {
+                            printErrorCustom(meta, it,
+                                "The type of array size must be less or equal to offset size.");
+                            skipLine(meta, it);
+                            continue;
+                        }
+                        field->arraySizeKw = arraySizeKw;
+                        break;
+                    default:
+                        printErrorWrongToken(meta, it, "uint8\"...\"uint64");
+                        skipLine(meta, it);
+                        continue;
                     }
                     if (next(meta, it, false) == next_r('y', 'y')) {
                         printErrorWrongToken(meta, it, "end of line");
@@ -1830,6 +1855,9 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
 
         if (field->isOptional) {
             ++structMeta->optionalCount;
+        }
+        if (field->arrayKw == kw::UNDEFINED && field->arraySizeKw == kw::UNDEFINED) {
+            field->arraySizeKw = structMeta->offsetType;
         }
 
         if (m_detailed) {
@@ -2124,15 +2152,7 @@ bool INBCompiler::parseUnion(AST::ParsingMeta& meta, tokens_it& it) {
                 if (next(meta, it, true, true) != next_r('y', 'y')) { // <[> <?>
                     continue;
                 }
-                if (it->str == "]") {
-                    if (next(meta, it, false) == next_r('y', 'y')) {
-                        printErrorWrongToken(meta, it, "end of line");
-                        skipLine(meta, it);
-                        continue;
-                    }
-                    field->isOptional = true;
-                }
-                else {
+                if (it->str != "]") { // <[> <?>
                     const tokens_it itAtValue = it;
                     const AST::ObjectMeta* arrayPtr = nullptr;
                     kw arrayKw = kw::UNDEFINED;
@@ -2204,6 +2224,39 @@ bool INBCompiler::parseUnion(AST::ParsingMeta& meta, tokens_it& it) {
                     if (field->typeKw == kw::Bytes) {
                         field->isOptional = false;
                     }
+                }
+                else { // <[> <]>
+                    field->isOptional = true;
+                }
+                if (next(meta, it, false) == next_r('y', 'y')) { // <]> <?>
+                    if (it->str != ":") { // <]> <:>
+                        printErrorWrongToken(meta, it, ":");
+                        skipLine(meta, it);
+                        continue;
+                    }
+                    if (next(meta, it, true, true) != next_r('y', 'y')) { // <]> <:> <?>
+                        continue;
+                    }
+                    const kw arraySizeKw = findKeyword(it->str);
+                    switch (arraySizeKw) {
+                    case kw::UInt8:
+                    case kw::UInt16:
+                    case kw::UInt32:
+                    case kw::UInt64:
+                        if (checkScalarTypeMatchingRange(
+                                arraySizeKw, unionMeta->offsetType) != 'y') {
+                            printErrorCustom(meta, it,
+                                "The type of array size must be less or equal to offset size.");
+                            skipLine(meta, it);
+                            continue;
+                        }
+                        field->arraySizeKw = arraySizeKw;
+                        break;
+                    default:
+                        printErrorWrongToken(meta, it, "uint8\"...\"uint64");
+                        skipLine(meta, it);
+                        continue;
+                    }
                     if (next(meta, it, false) == next_r('y', 'y')) {
                         printErrorWrongToken(meta, it, "end of line");
                         skipLine(meta, it);
@@ -2216,6 +2269,10 @@ bool INBCompiler::parseUnion(AST::ParsingMeta& meta, tokens_it& it) {
                 skipLine(meta, it);
                 continue;
             }
+        }
+
+        if (field->arrayKw == kw::UNDEFINED && field->arraySizeKw == kw::UNDEFINED) {
+            field->arraySizeKw = unionMeta->offsetType;
         }
 
         if (m_detailed) {

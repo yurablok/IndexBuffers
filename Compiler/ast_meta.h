@@ -232,6 +232,7 @@ struct AST {
         uint64_t arraySize = 0; // 0 - not fixed, >0 - fixed
         uint32_t arrayIdx = 0;
         kw arrayKw = kw::UNDEFINED;
+        kw arraySizeKw = kw::UNDEFINED;
 
         const ObjectMeta* typePtr = nullptr;
         kw typeKw = kw::UNDEFINED;

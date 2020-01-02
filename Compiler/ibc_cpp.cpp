@@ -340,7 +340,7 @@ namespace {
                 }
                 output << "    " << "    " << "    " << "    "
                     << "m_from_size += size_" << field->name
-                    << "() + sizeof(" << structMeta->offsetTypeStr << ");" << std::endl;
+                    << "() + sizeof(" << kw_to_domain_specific(field->arraySizeKw) << ");" << std::endl;
             }
             else if (field->isOptional) {
                 output << "    " << "    " << "    " << "    "
@@ -349,8 +349,12 @@ namespace {
                     if (field->isScalar) { // 6
                         output << "    " << "    " << "    " << "    " << "    "
                             << "m_from_size += size_" << field->name << "() * sizeof("
-                            << kw_to_domain_specific(field->typeKw)
-                            << ") + sizeof(" << structMeta->offsetTypeStr << ");" << std::endl;
+                            << kw_to_domain_specific(field->typeKw) << ")";
+                        if (field->arrayKw == kw::UNDEFINED) {
+                            output << " + sizeof("
+                                << kw_to_domain_specific(field->arraySizeKw) << ")";
+                        }
+                        output << ";" << std::endl;
                     }
                     else { // 7
                         output << "    " << "    " << "    " << "    " << "    "
@@ -360,7 +364,12 @@ namespace {
                             << "    " << "m_from_size += get_" << field->name
                             << "(i).size(2);" << std::endl;
                         output << "    " << "    " << "    " << "    " << "    "
-                            << "} m_from_size += sizeof(" << structMeta->offsetTypeStr << ");" << std::endl;
+                            << "}";
+                        if (field->arrayKw == kw::UNDEFINED) {
+                            output << " m_from_size += sizeof("
+                                << kw_to_domain_specific(field->arraySizeKw) << ");";
+                        }
+                        output << std::endl;
                     }
                 }
                 else {
@@ -479,7 +488,7 @@ namespace {
                 << ": return reinterpret_cast<uint8_t*>(" << std::endl;
             output << "    " << "    " << "    " << "base_ptr()) + offset(field)";
             if (field->isArray && field->arrayKw == kw::UNDEFINED) {
-                output << " + sizeof(" << structMeta->offsetTypeStr << ")";
+                output << " + sizeof(" << kw_to_domain_specific(field->arraySizeKw) << ")";
             }
             output << ";" << std::endl;
         }
@@ -552,15 +561,10 @@ namespace {
                                 break;
                             }
                         }
-                        if (field->isOptional) {
-                            size += " + sizeof(";
-                            size += structMeta->offsetTypeStr;
-                            size += ")";
-                        }
                     }
                     else {
                         size = "size + sizeof(";
-                        size += structMeta->offsetTypeStr;
+                        size += kw_to_domain_specific(field->arraySizeKw);
                         size += ")";
                     }
                 }
@@ -675,7 +679,8 @@ namespace {
             output << "    " << "    " << "    " << "return ";
             if (field->isArray) {
                 if (field->arrayKw == kw::UNDEFINED) {
-                    output << "*(reinterpret_cast<const " << structMeta->offsetTypeStr
+                    output << "*(reinterpret_cast<const "
+                        << kw_to_domain_specific(field->arraySizeKw)
                         << "*>(get(field)) - 1)";
                 }
                 else if (isScalarType(field->arrayKw)) {
@@ -1312,24 +1317,32 @@ namespace {
             if (field->typeKw == kw::Bytes) {
                 output << "    " << "    " << "    " << "    " << "    "
                     << "m_from_size += size_" << field->name
-                    << "() + sizeof(" << unionMeta->offsetTypeStr << ");" << std::endl;
+                    << "() + sizeof(" << kw_to_domain_specific(field->arraySizeKw) << ");" << std::endl;
             }
             else if (field->isArray) {
                 if (field->isScalar) { // 6
                     output << "    " << "    " << "    " << "    " << "    "
                         << "m_from_size += size_" << field->name << "() * sizeof("
-                        << kw_to_domain_specific(field->typeKw)
-                        << ") + sizeof(" << unionMeta->offsetTypeStr << ");" << std::endl;
+                        << kw_to_domain_specific(field->typeKw) << ")";
+                    if (field->arrayKw == kw::UNDEFINED) {
+                        output << " + sizeof("
+                            << kw_to_domain_specific(field->arraySizeKw) << ")";
+                    }
+                    output << ";" << std::endl;
                 }
                 else { // 7
                     output << "    " << "    " << "    " << "    " << "    "
-                        << "for (" << unionMeta->offsetTypeStr << " i = 0, s = size_" << field->name
-                        << "(); i < s; ++i) {" << std::endl;
+                        << "for (" << unionMeta->offsetTypeStr << " i = 0, s = size_"
+                        << field->name << "(); i < s; ++i) {" << std::endl;
                     output << "    " << "    " << "    " << "    " << "    "
                         << "    " << "m_from_size += get_" << field->name
                         << "(i).size(2);" << std::endl;
-                    output << "    " << "    " << "    " << "    " << "    "
-                        << "} m_from_size += sizeof(" << unionMeta->offsetTypeStr << ");" << std::endl;
+                    output << "    " << "    " << "    " << "    " << "    " << "}";
+                    if (field->arrayKw == kw::UNDEFINED) {
+                        output << " m_from_size += sizeof("
+                            << kw_to_domain_specific(field->arraySizeKw) << ");";
+                    }
+                    output << std::endl;
                 }
             }
             else {
@@ -1399,8 +1412,8 @@ namespace {
                 << ": return reinterpret_cast<uint8_t*>(" << std::endl;
             output << "    " << "    "
                 << "    " << "base_ptr()) + offset()";
-            if (field->isArray) {
-                output << " + sizeof(" << unionMeta->offsetTypeStr << ")";
+            if (field->isArray && field->arrayKw == kw::UNDEFINED) {
+                output << " + sizeof(" << kw_to_domain_specific(field->arraySizeKw) << ")";
             }
             output << ";" << std::endl;
         }
@@ -1430,7 +1443,11 @@ namespace {
                 << ":" << std::endl;
             output << "    " << "    " << "    " << "    " << "m_buffer->resize(m_buffer->size()";
             if (field->isArray) {
-                output << " + sizeof(" << unionMeta->offsetTypeStr << ")" << std::endl;
+                if (field->arrayKw == kw::UNDEFINED) {
+                    output << " + sizeof(" << kw_to_domain_specific(field->arraySizeKw)
+                        << ")";
+                }
+                output << std::endl;
                 output << "    " << "    " << "    " << "    " << "    "
                     << "+ size * sizeof(";
                 if (field->isBuiltIn || field->typeKw == kw::Bytes) {
@@ -1501,7 +1518,7 @@ namespace {
             if (!field->isBuiltIn && field->typeKw != kw::Enum) {
                 if (field->isArray) {
                     output << "    " << "    " << "    " << "    "
-                        << "for (" << unionMeta->offsetTypeStr
+                        << "for (" << kw_to_domain_specific(field->arraySizeKw)
                         << " i = 0; i < size; ++i) {" << std::endl;
                     output << "    " << "    " << "    " << "    " << "    "
                         << "get_" << field->name << "(i).create(UINT32_MAX);" << std::endl;
@@ -1537,7 +1554,8 @@ namespace {
             output << "    " << "    " << "    " << "return ";
             if (field->isArray) {
                 if (field->arrayKw == kw::UNDEFINED) {
-                    output << "*(reinterpret_cast<const " << unionMeta->offsetTypeStr
+                    output << "*(reinterpret_cast<const "
+                        << kw_to_domain_specific(field->arraySizeKw)
                         << "*>(get(field)) - 1)";
                 }
                 else if (isScalarType(field->arrayKw)) {

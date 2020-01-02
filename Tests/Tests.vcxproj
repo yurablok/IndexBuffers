@@ -164,7 +164,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="additional.ibs" />
-    <None Include="debug\debug.ibs" />
+    <None Include="debug_\debug.ibs" />
     <None Include="schema.ibs" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -10,13 +10,13 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="additional.ibs" />
-    <None Include="schema.ibs" />
-    <None Include="debug\debug.ibs">
-      <Filter>debug</Filter>
+    <None Include="debug_\debug.ibs">
+      <Filter>debug_</Filter>
     </None>
+    <None Include="schema.ibs" />
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="debug">
+    <Filter Include="debug_">
       <UniqueIdentifier>{63993f52-8491-4408-8413-b656e3316f58}</UniqueIdentifier>
     </Filter>
   </ItemGroup>

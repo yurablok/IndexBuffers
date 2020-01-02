@@ -83,7 +83,7 @@ struct Arrays: uint16 {
     bytes          b[fixedSize] // Fixed size array of bytes
     // Dynamic size arrays are always "optional"
     int16          m[] // Dynamic size array of integers
-    Vec3f          v[] // Dynamic size array of structs
+    Vec3f          v[]: uint8 // Dynamic size array of structs
 }
 
 union Variant: uint8 {
@@ -200,7 +200,7 @@ struct Arrays: uint16 {
     bytes          b[fixedSize] // Массив байт фиксированного размера
     // Массивы динамического размера всегда являются "optional"
     int16          m[] // Массив целых чисел динамического размера
-    Vec3f          v[] // Массив структур динамического размера
+    Vec3f          v[]: uint8 // Массив структур динамического размера
 }
 
 union Variant: uint8 {
