@@ -125,8 +125,8 @@ public:
         def = 1,
         _SPECIAL_ = 2
     };
-    static const char* to_string(const _ enum_value) {
-        switch(enum_value) {
+    static const char* to_string(const _ __value__) {
+        switch(__value__) {
         case var: return "var";
         case def: return "def";
         default: break;
@@ -134,19 +134,19 @@ public:
         return nullptr;
     }
     template <typename string_t>
-    static _ from_string(const string_t& string_value) {
+    static _ from_string(const string_t& __value__) {
         static const std::unordered_map<string_t, _> map = {
             { "var", var },
             { "def", def }
         };
-        const auto it = map.find(string_value);
+        const auto it = map.find(__value__);
         if (it == map.end()) {
             return _SPECIAL_;
         }
         return it->second;
     }
-    static _ from_string(const char* string_value) {
-        return from_string(std::string(string_value));
+    static _ from_string(const char* __value__) {
+        return from_string(std::string(__value__));
     }
     static constexpr _ min() {
         return var;
@@ -157,8 +157,8 @@ public:
     static constexpr uint32_t count() {
         return 2;
     }
-    static _ at(const uint32_t index) {
-        switch (index) {
+    static _ at(const uint32_t __value__) {
+        switch (__value__) {
         case 0: return var;
         case 1: return def;
         default: break;
@@ -309,8 +309,8 @@ enum _ : uint32_t {
     three = 4,
     _SPECIAL_ = 5
 };
-static const char* to_string(const _ enum_value) {
-    switch(enum_value) {
+static const char* to_string(const _ __value__) {
+    switch(__value__) {
     case one: return "one";
     case two: return "two";
     case three: return "three";
@@ -319,20 +319,20 @@ static const char* to_string(const _ enum_value) {
     return nullptr;
 }
 template <typename string_t>
-static _ from_string(const string_t& string_value) {
+static _ from_string(const string_t& __value__) {
     static const std::unordered_map<string_t, _> map = {
         { "one", one },
         { "two", two },
         { "three", three }
     };
-    const auto it = map.find(string_value);
+    const auto it = map.find(__value__);
     if (it == map.end()) {
         return _SPECIAL_;
     }
     return it->second;
 }
-static _ from_string(const char* string_value) {
-    return from_string(std::string(string_value));
+static _ from_string(const char* __value__) {
+    return from_string(std::string(__value__));
 }
 static constexpr _ min() {
     return one;
@@ -343,8 +343,8 @@ static constexpr _ max() {
 static constexpr uint32_t count() {
     return 3;
 }
-static _ at(const uint32_t index) {
-    switch (index) {
+static _ at(const uint32_t __value__) {
+    switch (__value__) {
     case 0: return one;
     case 1: return two;
     case 2: return three;

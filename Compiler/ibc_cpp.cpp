@@ -122,8 +122,8 @@ namespace {
             << enumMeta->valuesVec.back().second + 1 << std::endl;
         output << writingMeta.spacing << "};" << std::endl;
         output << writingMeta.spacing
-            << "static const char* to_string(const _ enum_value) {" << std::endl;
-        output << writingMeta.spacing << "    " << "switch(enum_value) {" << std::endl;
+            << "static const char* to_string(const _ __value__) {" << std::endl;
+        output << writingMeta.spacing << "    " << "switch(__value__) {" << std::endl;
         for (const auto& value : enumMeta->valuesVec) {
             output << writingMeta.spacing << "    " << "case " << value.first
                 << ": return \"" << value.first << "\";" << std::endl;
@@ -134,7 +134,7 @@ namespace {
         output << writingMeta.spacing << "}" << std::endl;
         output << writingMeta.spacing << "template <typename string_t>" << std::endl;
         output << writingMeta.spacing
-            << "static _ from_string(const string_t& string_value) {" << std::endl;
+            << "static _ from_string(const string_t& __value__) {" << std::endl;
         output << writingMeta.spacing << "    "
             << "static const std::unordered_map<string_t, _> map = {" << std::endl;
         for (uint32_t i = 0; i < enumMeta->valuesVec.size(); ++i) {
@@ -148,7 +148,7 @@ namespace {
         }
         output << writingMeta.spacing << "    " << "};" << std::endl;
         output << writingMeta.spacing << "    "
-            << "const auto it = map.find(string_value);" << std::endl;
+            << "const auto it = map.find(__value__);" << std::endl;
         output << writingMeta.spacing << "    "
             << "if (it == map.end()) {" << std::endl;
         output << writingMeta.spacing << "    "
@@ -157,9 +157,9 @@ namespace {
         output << writingMeta.spacing << "    "
             << "return it->second;" << std::endl;
         output << writingMeta.spacing << "}" << std::endl;
-        output << writingMeta.spacing << "static _ from_string(const char* string_value) {" << std::endl;
+        output << writingMeta.spacing << "static _ from_string(const char* __value__) {" << std::endl;
         output << writingMeta.spacing << "    " <<
-            "return from_string(std::string(string_value));" << std::endl;
+            "return from_string(std::string(__value__));" << std::endl;
         output << writingMeta.spacing << "}" << std::endl;
         output << writingMeta.spacing << "static constexpr _ min() {" << std::endl;
         output << writingMeta.spacing << "    "
@@ -175,8 +175,8 @@ namespace {
             << enumMeta->valuesVec.size() << ";" << std::endl;
         output << writingMeta.spacing << "}" << std::endl;
         output << writingMeta.spacing << "static _ at(const "
-            << kw_to_domain_specific(enumMeta->type) << " index) {" << std::endl;
-        output << writingMeta.spacing << "    " << "switch (index) {" << std::endl;
+            << kw_to_domain_specific(enumMeta->type) << " __value__) {" << std::endl;
+        output << writingMeta.spacing << "    " << "switch (__value__) {" << std::endl;
         for (uint32_t i = 0; i < enumMeta->valuesVec.size(); ++i) {
             output << writingMeta.spacing << "    " << "case " << i << ": return "
                 << enumMeta->valuesVec[i].first << ";" << std::endl;

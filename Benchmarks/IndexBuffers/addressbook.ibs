@@ -6,21 +6,21 @@ enum PhoneNumberType: uint16 {
     work
 }
 struct PhoneNumber: uint16 {
-    bytes number
+    bytes number[]
     PhoneNumberType type
 }
 
 union Employment: uint16 {
     uint8 unemployed
-    bytes employer
-    bytes school
+    bytes employer[]
+    bytes school[]
     uint8 selfEmployed
 }
 
 struct Person: uint16 {
     uint32 id
-    bytes name
-    bytes email
+    bytes name[]
+    bytes email[]
     PhoneNumber phones[]
     Employment employment
 }
