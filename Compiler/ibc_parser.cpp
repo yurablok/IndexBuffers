@@ -1581,7 +1581,12 @@ bool INBCompiler::parseStruct(AST::ParsingMeta& meta, tokens_it& it) {
         structMeta->fieldsVec.push_back(field);
         structMeta->fieldsMap[field->name] = std::move(fieldPtr);
 
-        if (next(meta, it, true) == next_r('y', 'y')) {
+        if (next(meta, it, true, field->typeKw == kw::Bytes) == next_r('y', 'y')) {
+            if (field->typeKw == kw::Bytes && it->str != "[") {
+                printErrorWrongToken(meta, it, "[");
+                skipLine(meta, it);
+                continue;
+            }
             if (it->str == "=") {
                 switch (field->typeKw) {
                 case kw::Struct:
@@ -2146,7 +2151,12 @@ bool INBCompiler::parseUnion(AST::ParsingMeta& meta, tokens_it& it) {
         unionMeta->fieldsVec.push_back(field);
         unionMeta->fieldsMap[field->name] = std::move(fieldPtr);
 
-        if (next(meta, it, true) == next_r('y', 'y')) {
+        if (next(meta, it, true, field->typeKw == kw::Bytes) == next_r('y', 'y')) {
+            if (field->typeKw == kw::Bytes && it->str != "[") {
+                printErrorWrongToken(meta, it, "[");
+                skipLine(meta, it);
+                continue;
+            }
             if (it->str == "[") {
                 field->isArray = true;
                 if (next(meta, it, true, true) != next_r('y', 'y')) { // <[> <?>

@@ -93,7 +93,7 @@ union Variant: uint8 {
 }
 
 struct AnotherOne {
-    bytes                   string // bytes is always an array
+    bytes                   string[]
     optional Variant        variant
     Color                   colorChannels[Color.count] // Also exists ".min", ".max"
     Color                   colorMask = Color::BLUE
@@ -212,7 +212,7 @@ union Variant: uint8 {
 }
 
 struct AnotherOne {
-    bytes                   string // bytes всегда массив
+    bytes                   string[]
     optional Variant        variant
     Color                   colorChannels[Color.count] // Также есть ".min", ".max"
     Color                   colorMask = Color::BLUE
