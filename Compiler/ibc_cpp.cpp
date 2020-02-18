@@ -112,6 +112,7 @@ namespace {
         output << writingMeta.spacing << std::endl;
         output << writingMeta.spacing << "struct " << enumMeta->name
             << " { // enum " << enumMeta->name << std::endl;
+        output << writingMeta.spacing << "virtual void __better_enum() = 0;" << std::endl;
         output << writingMeta.spacing << "enum _ : "
             << kw_to_domain_specific(enumMeta->type) << " {" << std::endl;
         for (const auto& value : enumMeta->valuesVec) {

@@ -13,6 +13,7 @@
 namespace DebugNS {
 
 struct DebugEnum { // enum DebugEnum
+virtual void __better_enum() = 0;
 enum _ : uint32_t {
     value1 = 0,
     value2 = 1,
@@ -167,6 +168,7 @@ public:
     }
     
     struct fields { // enum fields
+    virtual void __better_enum() = 0;
     enum _ : uint32_t {
         field1 = 0,
         _SPECIAL_ = 1

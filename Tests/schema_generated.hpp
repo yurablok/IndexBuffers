@@ -15,6 +15,7 @@ namespace ExtNS {
 namespace IntNS {
 
 struct Color { // enum Color
+virtual void __better_enum() = 0;
 enum _ : uint8_t {
     RED = 0,
     GREEN = 3,
@@ -176,6 +177,7 @@ public:
     }
     
     struct fields { // enum fields
+    virtual void __better_enum() = 0;
     enum _ : uint8_t {
         a = 0,
         b = 1,
@@ -551,6 +553,7 @@ public:
     }
     
     struct fields { // enum fields
+    virtual void __better_enum() = 0;
     enum _ : uint32_t {
         x = 0,
         y = 1,
@@ -860,6 +863,7 @@ public:
     }
     
     struct fields { // enum fields
+    virtual void __better_enum() = 0;
     enum _ : uint16_t {
         f = 0,
         b = 1,
@@ -1236,6 +1240,7 @@ public:
     }
     
     struct fields { // enum fields
+    virtual void __better_enum() = 0;
     enum _ : uint8_t {
         color = 0,
         data = 1,
@@ -1560,6 +1565,7 @@ public:
     }
     
     struct fields { // enum fields
+    virtual void __better_enum() = 0;
     enum _ : uint32_t {
         string = 0,
         variant = 1,

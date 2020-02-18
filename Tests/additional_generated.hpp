@@ -120,6 +120,7 @@ public:
     }
     
     struct fields { // enum fields
+    virtual void __better_enum() = 0;
     enum _ : uint32_t {
         var = 0,
         def = 1,
@@ -303,6 +304,7 @@ private:
 }; // struct SomeType
 
 struct TestEnum2 { // enum TestEnum2
+virtual void __better_enum() = 0;
 enum _ : uint32_t {
     one = 0,
     two = 2,
