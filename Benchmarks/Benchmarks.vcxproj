@@ -72,23 +72,23 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(ProjectDir);$(ProjectDir)protobuf\protoc-3.11.2\include;$(ProjectDir)flatbuffers\flatc-1.11.0;$(ProjectDir)capnproto\capnproto-c++-0.7.0\src;$(IncludePath)</IncludePath>
-    <LibraryPath>$(ProjectDir)protobuf\protoc-3.11.2\bin;$(ProjectDir)capnproto\capnproto-tools-win32-0.7.0;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProjectDir);$(ProjectDir)protobuf\protoc-3.14.0\include;$(ProjectDir)flatbuffers\flatc-1.11.0;$(ProjectDir)capnproto\capnproto-c++-0.7.0\src;$(IncludePath)</IncludePath>
+    <LibraryPath>$(ProjectDir)protobuf\protoc-3.14.0\bin;$(ProjectDir)capnproto\capnproto-tools-win32-0.7.0;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(ProjectDir);$(ProjectDir)protobuf\protoc-3.11.2\include;$(ProjectDir)flatbuffers\flatc-1.11.0;$(ProjectDir)capnproto\capnproto-c++-0.7.0\src;$(IncludePath)</IncludePath>
-    <LibraryPath>$(ProjectDir)protobuf\protoc-3.11.2\bin;$(ProjectDir)capnproto\capnproto-tools-win32-0.7.0;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProjectDir);$(ProjectDir)protobuf\protoc-3.14.0\include;$(ProjectDir)flatbuffers\flatc-1.11.0;$(ProjectDir)capnproto\capnproto-c++-0.7.0\src;$(IncludePath)</IncludePath>
+    <LibraryPath>$(ProjectDir)protobuf\protoc-3.14.0\bin;$(ProjectDir)capnproto\capnproto-tools-win32-0.7.0;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(ProjectDir);$(ProjectDir)protobuf\protoc-3.11.2\include;$(ProjectDir)flatbuffers\flatc-1.11.0;$(ProjectDir)capnproto\capnproto-c++-0.7.0\src;$(IncludePath)</IncludePath>
-    <LibraryPath>$(ProjectDir)protobuf\protoc-3.11.2\bin;$(ProjectDir)capnproto\capnproto-tools-win32-0.7.0;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProjectDir);$(ProjectDir)protobuf\protoc-3.14.0\include;$(ProjectDir)flatbuffers\flatc-1.11.0;$(ProjectDir)capnproto\capnproto-c++-0.7.0\src;$(IncludePath)</IncludePath>
+    <LibraryPath>$(ProjectDir)protobuf\protoc-3.14.0\bin;$(ProjectDir)capnproto\capnproto-tools-win32-0.7.0;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(ProjectDir);$(ProjectDir)protobuf\protoc-3.11.2\include;$(ProjectDir)flatbuffers\flatc-1.11.0;$(ProjectDir)capnproto\capnproto-c++-0.7.0\src;$(IncludePath)</IncludePath>
-    <LibraryPath>$(ProjectDir)protobuf\protoc-3.11.2\bin;$(ProjectDir)capnproto\capnproto-tools-win32-0.7.0;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProjectDir);$(ProjectDir)protobuf\protoc-3.14.0\include;$(ProjectDir)flatbuffers\flatc-1.11.0;$(ProjectDir)capnproto\capnproto-c++-0.7.0\src;$(IncludePath)</IncludePath>
+    <LibraryPath>$(ProjectDir)protobuf\protoc-3.14.0\bin;$(ProjectDir)capnproto\capnproto-tools-win32-0.7.0;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -98,6 +98,9 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -112,6 +115,9 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -128,7 +134,10 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -147,7 +156,10 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -158,20 +170,30 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="protobuf\addressbook.pb.cc" />
+    <ClCompile Include="protobuf\addressbook_v2.pb.cc" />
+    <ClCompile Include="protobuf\addressbook_v2lite.pb.cc" />
+    <ClCompile Include="protobuf\addressbook_v3.pb.cc" />
+    <ClCompile Include="run_protobuf_v2.cpp" />
+    <ClCompile Include="run_protobuf_v2lite.cpp" />
+    <ClCompile Include="run_protobuf_v3.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="capnproto\addressbook.capnp" />
     <None Include="capnproto\addressbook.capnp.c++" />
     <None Include="flatbuffers\addressbook.fbs" />
     <None Include="IndexBuffers\addressbook.ibs" />
-    <None Include="protobuf\addressbook.proto" />
+    <None Include="protobuf\addressbook_v2.proto" />
+    <None Include="protobuf\addressbook_v2lite.proto" />
+    <None Include="protobuf\addressbook_v3.proto" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="capnproto\addressbook.capnp.h" />
     <ClInclude Include="flatbuffers\addressbook_generated.h" />
     <ClInclude Include="IndexBuffers\addressbook_generated.hpp" />
-    <ClInclude Include="protobuf\addressbook.pb.h" />
+    <ClInclude Include="protobuf\addressbook_v2.pb.h" />
+    <ClInclude Include="protobuf\addressbook_v2lite.pb.h" />
+    <ClInclude Include="protobuf\addressbook_v3.pb.h" />
+    <ClInclude Include="run_protobuf.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

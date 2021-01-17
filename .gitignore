@@ -18,3 +18,5 @@
 /Benchmarks/flatbuffers/flatc-*
 /Benchmarks/capnproto/capnproto-*
 /Benchmarks/x64
+*.qmake.stash
+*Makefile.*

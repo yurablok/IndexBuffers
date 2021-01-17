@@ -103,17 +103,22 @@ struct AnotherOne {
 
 ## [↑](#eng) <a name="eng_benchmarks"></a> Comparison with alternatives
 
-|                             Tool                                |  Time, ms |  %              |     Size of packet, B | Size of code, KB |
-| :-------------------------------------------------------------: | --------: | :-------------: | --------------------: | ---------------: |
-| [Protocol Buffers](https://github.com/protocolbuffers/protobuf) |     13693 | 276             |                   106 |  external + 92.9 |
-|   [FlatBuffers](https://github.com/google/flatbuffers)          |      4965 | 100             |                   296 |  external + 19.8 |
-|   [Cap'n Proto](https://github.com/capnproto/capnproto)         |      8390 | 169             |                   151 |  external + 50.7 |
-|    IndexBuffers                                                 |      7587 | 153             |           (uint8) 104 |             45.7 |
-|    IndexBuffers                                                 |      7122 | 143             |          (uint16) 129 |             45.7 |
-|    IndexBuffers                                                 |      6681 | 135<sub>1</sub> |          (uint32) 188 | 45.7<sub>2</sub> |
+|                             Tool                                        | Time<sub>1</sub>, mcs |       %        | Time<sub>2</sub>, mcs |       %        | Size of packet, B | Size of code, KB |
+| :---------------------------------------------------------------------: | --------------------: | :------------: | --------------------: | :------------: | ----------------: | ---------------: |
+| [Protocol Buffers](https://github.com/protocolbuffers/protobuf) v2      |                 1.411 | 215            |                43.979 | 328            |               106 |  external + 96.4 |
+| [Protocol Buffers](https://github.com/protocolbuffers/protobuf) v2 lite |                 1.407 | 214            |                37.225 | 278            |               106 |  external + 85.8 |
+| [Protocol Buffers](https://github.com/protocolbuffers/protobuf) v3      |                 1.527 | 233            |                42.778 | 319            |               106 |  external + 90.6 |
+| [Protocol Buffers](https://github.com/protocolbuffers/protobuf) v3 lite |                 1.527 | 233            |                42.611 | 318            |               106 |  external + 90.6 |
+|   [FlatBuffers](https://github.com/google/flatbuffers)                  |                 0.656 | 100            |                13.379 | 100            |               296 |  external + 19.8 |
+|   [Cap'n Proto](https://github.com/capnproto/capnproto)                 |                 1.084 | 165            |                       |                |               151 |  external + 52.0 |
+|    IndexBuffers                                                         |                 0.523 | 80             |                15.621 | 116            |       (uint8) 104 |             45.5 |
+|    IndexBuffers                                                         |                 0.517 | 79             |                15.586 | 116            |      (uint16) 132 |             45.5 |
+|    IndexBuffers                                                         |                 0.512 | 78<sub>3</sub> |                14.617 | 109            |      (uint32) 188 | 45.5<sub>4</sub> |
 
-1. To make IndexBuffers more faster, need to work out the issue of aligning the fields.
-2. Unlike alternative tools, the generated IndexBuffers code has no dependencies  
+1. Time for one serialization+deserialization, Zen 3 "Vermeer", 4.5 GHz.
+2. Time for one serialization+deserialization, i.MX6 armv7l, 1 GHz.
+3. To make IndexBuffers more faster, need to work out the issue of aligning the fields.
+4. Unlike alternative tools, the generated IndexBuffers code has no dependencies  
    on either additional tool header files or additional static tool libraries  
    (like Protocol Buffers and Cap'n Proto).
 
@@ -222,18 +227,23 @@ struct AnotherOne {
 
 ## [↑](#rus) <a name="rus_benchmarks"></a> Сравнение с альтернативными инструментами
 
-|                           Инструмент                            | Время, мс |  %              |      Размер пакета, б |  Размер кода, Кб |
-| :-------------------------------------------------------------: | --------: | :-------------: | --------------------: | ---------------: |
-| [Protocol Buffers](https://github.com/protocolbuffers/protobuf) |     13693 | 276             |                   106 |   внешний + 92.9 |
-|   [FlatBuffers](https://github.com/google/flatbuffers)          |      4965 | 100             |                   296 |   внешний + 19.8 |
-|   [Cap'n Proto](https://github.com/capnproto/capnproto)         |      8390 | 169             |                   151 |   внешний + 50.7 |
-|    IndexBuffers                                                 |      7587 | 153             |           (uint8) 104 |             45.7 |
-|    IndexBuffers                                                 |      7122 | 143             |          (uint16) 129 |             45.7 |
-|    IndexBuffers                                                 |      6681 | 135<sub>1</sub> |          (uint32) 188 | 45.7<sub>2</sub> |
+|                           Инструмент                                    | Время<sub>1</sub>, мкс |       %        | Время<sub>2</sub>, мкс |       %        | Размер пакета, б |  Размер кода, Кб |
+| :---------------------------------------------------------------------: | ---------------------: | :------------: | ---------------------: | :------------: | ---------------: | ---------------: |
+| [Protocol Buffers](https://github.com/protocolbuffers/protobuf) v2      |                  1.411 | 215            |                 43.979 | 328            |              106 |   внешний + 96.4 |
+| [Protocol Buffers](https://github.com/protocolbuffers/protobuf) v2 lite |                  1.407 | 214            |                 37.225 | 278            |              106 |   внешний + 85.8 |
+| [Protocol Buffers](https://github.com/protocolbuffers/protobuf) v3      |                  1.527 | 233            |                 42.778 | 319            |              106 |   внешний + 90.6 |
+| [Protocol Buffers](https://github.com/protocolbuffers/protobuf) v3 lite |                  1.527 | 233            |                 42.611 | 318            |              106 |   внешний + 90.6 |
+|   [FlatBuffers](https://github.com/google/flatbuffers)                  |                  0.656 | 100            |                 13.379 | 100            |              296 |   внешний + 19.8 |
+|   [Cap'n Proto](https://github.com/capnproto/capnproto)                 |                  1.084 | 165            |                        |                |              151 |   внешний + 52.0 |
+|    IndexBuffers                                                         |                  0.523 | 80             |                 15.621 | 116            |      (uint8) 104 |             45.5 |
+|    IndexBuffers                                                         |                  0.517 | 79             |                 15.586 | 116            |     (uint16) 132 |             45.5 |
+|    IndexBuffers                                                         |                  0.512 | 78<sub>3</sub> |                 14.617 | 109            |     (uint32) 188 | 45.5<sub>4</sub> |
 
-1. Чтобы сделать IndexBuffers ещё быстрее, нужно проработать вопрос  
+1. Время на одну сериализацию+десериализацию, Zen 3 "Vermeer", 4.5 ГГц.
+2. Время на одну сериализацию+десериализацию, i.MX6 armv7l, 1 ГГц.
+3. Чтобы сделать IndexBuffers ещё быстрее, нужно проработать вопрос  
    выравнивания полей.
-2. В отличии от альтернативных инструментов, у сгенерированного кода  
+4. В отличии от альтернативных инструментов, у сгенерированного кода  
    IndexBuffers нет зависимостей ни от дополнительных заголовочных  
    файлов инструмента, ни от дополнительных статических библиотек  
    инстумента (как у Protocol Buffers и Cap'n Proto).

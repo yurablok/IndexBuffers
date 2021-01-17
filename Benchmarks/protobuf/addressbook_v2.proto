@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package proto;
+package proto_v2;
 
 message Person {
   required string name = 1;

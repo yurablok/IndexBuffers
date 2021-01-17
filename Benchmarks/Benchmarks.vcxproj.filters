@@ -2,19 +2,28 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="protobuf\addressbook.pb.cc">
+    <ClCompile Include="protobuf\addressbook_v2.pb.cc">
       <Filter>protobuf</Filter>
     </ClCompile>
+    <ClCompile Include="protobuf\addressbook_v2lite.pb.cc">
+      <Filter>protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="protobuf\addressbook_v3.pb.cc">
+      <Filter>protobuf</Filter>
+    </ClCompile>
+    <ClCompile Include="run_protobuf_v2.cpp" />
+    <ClCompile Include="run_protobuf_v2lite.cpp" />
+    <ClCompile Include="run_protobuf_v3.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="capnproto">
       <UniqueIdentifier>{d7dc270e-d0e2-404c-992d-4596e632bc08}</UniqueIdentifier>
     </Filter>
-    <Filter Include="IndexBuffers">
-      <UniqueIdentifier>{cf4a2a1d-b87b-4801-b64b-c73f1d736c41}</UniqueIdentifier>
-    </Filter>
     <Filter Include="flatbuffers">
       <UniqueIdentifier>{dbb35456-a9bd-47f6-8491-3242b9772229}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="IndexBuffers">
+      <UniqueIdentifier>{cf4a2a1d-b87b-4801-b64b-c73f1d736c41}</UniqueIdentifier>
     </Filter>
     <Filter Include="protobuf">
       <UniqueIdentifier>{8d97a1ba-9738-400f-a17b-699fbf163302}</UniqueIdentifier>
@@ -27,13 +36,19 @@
     <None Include="capnproto\addressbook.capnp.c++">
       <Filter>capnproto</Filter>
     </None>
-    <None Include="IndexBuffers\addressbook.ibs">
-      <Filter>IndexBuffers</Filter>
-    </None>
     <None Include="flatbuffers\addressbook.fbs">
       <Filter>flatbuffers</Filter>
     </None>
-    <None Include="protobuf\addressbook.proto">
+    <None Include="IndexBuffers\addressbook.ibs">
+      <Filter>IndexBuffers</Filter>
+    </None>
+    <None Include="protobuf\addressbook_v2.proto">
+      <Filter>protobuf</Filter>
+    </None>
+    <None Include="protobuf\addressbook_v2lite.proto">
+      <Filter>protobuf</Filter>
+    </None>
+    <None Include="protobuf\addressbook_v3.proto">
       <Filter>protobuf</Filter>
     </None>
   </ItemGroup>
@@ -41,14 +56,21 @@
     <ClInclude Include="capnproto\addressbook.capnp.h">
       <Filter>capnproto</Filter>
     </ClInclude>
-    <ClInclude Include="IndexBuffers\addressbook_generated.hpp">
-      <Filter>IndexBuffers</Filter>
-    </ClInclude>
     <ClInclude Include="flatbuffers\addressbook_generated.h">
       <Filter>flatbuffers</Filter>
     </ClInclude>
-    <ClInclude Include="protobuf\addressbook.pb.h">
+    <ClInclude Include="IndexBuffers\addressbook_generated.hpp">
+      <Filter>IndexBuffers</Filter>
+    </ClInclude>
+    <ClInclude Include="protobuf\addressbook_v2.pb.h">
       <Filter>protobuf</Filter>
     </ClInclude>
+    <ClInclude Include="protobuf\addressbook_v2lite.pb.h">
+      <Filter>protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="protobuf\addressbook_v3.pb.h">
+      <Filter>protobuf</Filter>
+    </ClInclude>
+    <ClInclude Include="run_protobuf.h" />
   </ItemGroup>
 </Project>
